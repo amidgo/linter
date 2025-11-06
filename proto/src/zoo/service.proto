@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package zoo;
+
+option go_package = 'grpc/v1/zoo';
+
+message AddAnimalRequest {
+  string name = 1;
+  reserved 2 to 100;
+}
