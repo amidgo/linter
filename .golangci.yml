@@ -58,6 +58,7 @@ linters:
     # https://github.com/bkielbasa/cyclop
     # Проверяет цикломатичную вложенность функций и пакетов, современная альтернатива gocyclo
     # Настройки по умолчанию вполне нас устраивают
+    #
     # gocognit выполняет ту же самую фукнцию
     # revive.cognitive-complexity выполняет ту же самую функцию
     #
@@ -66,7 +67,7 @@ linters:
     # Необходимо оценивать общую сложность функций
     #
     # Выключаем
-    - cyclop
+    # - cyclop
 
     # https://golangci-lint.run/docs/linters/configuration/#decorder
     # https://gitlab.com/bosi/decorder
@@ -191,17 +192,12 @@ linters:
     # Проверяет порядок расположения функций, методов и конструкторов.
     # Можно включить для специфических ситуаций
     # - funcorder
+
     # https://golangci-lint.run/docs/linters/configuration/#funlen
     # https://github.com/ultraware/funlen
     # Валидирует длину функций в строчках, по умолчанию 60
-    #
-    # gocognit выполняет ту же самую фукнцию
-    # revive.cognitive-complexity выполняет ту же самую функцию
-    #
-    # Выбор сделан в пользу линтеров производящих комплексную оценку сложности функции
-    #
-    # Выключаем
-    # - funlen
+    # Настраивается
+    - funlen
 
     # https://golangci-lint.run/docs/linters/configuration/#ginkgolinter
     # https://github.com/nunnatsa/ginkgolinter
@@ -434,7 +430,14 @@ linters:
     # Не разобрался как точно работает
     # Оставлю
     # Сомнительно
-    - maintidx
+    #
+    # gocognit выполняет ту же самую функцию
+    #
+    # Было принято решение что для оценки сложности используем gocognit
+    #
+    #
+    # Выключаем
+    # - maintidx
 
     # https://golangci-lint.run/docs/linters/configuration/#makezero
     # https://github.com/ashanbrown/makezero
@@ -839,7 +842,7 @@ linters:
 
     forbidigo:
       forbid:
-        - pattern: ^(fmt\\.Print(|f|ln)|print|println)$
+        - pattern: ^(fmt.Print(|f|ln)|print|println)$
           msg: "direct output to stdout is forbidden"
 
         - pattern: uuid.Nil
@@ -861,13 +864,14 @@ linters:
     gochecksumtype:
       # Независимо от наличия ветки default должны быть осуществлены все возможные type assertion в switch case
       default-signifies-exhaustive: false
-      # Сложная надстройка, ломает строгость позволяет при некоторых случаях в перечеление передавать interface
+
+      # Сложная надстройка, ломает строгость позволяет при некоторых случаях в перечиcление передавать interface
       # При этом линтер не будет указывать на ошибку
       # ПРИЗНАН АНТИПАТТЕРНОМ
       include-shared-interfaces: false
 
     gocognit:
-      min-complexity: 1
+      min-complexity: 10
 
     gocritic:
       disable-all: true
@@ -1049,7 +1053,14 @@ linters:
 
         # https://go-critic.com/overview.html#deferinloop
         # Запрещает вызывать defer в циклах
-        - deferInLoop
+        #
+        # Выглядит как частный случай revive.defer
+        #
+        # revive.defer выполняет ту же самую функцию
+        # Однако спектр правил гораздо больше
+        #
+        # Выключаем
+        # - deferInLoop
 
         # https://go-critic.com/overview.html#deferunlambda
         # Обнаруживает случаи когда вызов defer функции можно упростить
@@ -1083,24 +1094,39 @@ linters:
 
         # https://go-critic.com/overview.html#dupbranchbody
         # Обнаруживает случаи когда в if и else блоках заключен один и тот же код
-        # Не работает на switch case
-        - dupBranchBody
+        #
+        # revive.identical-branches выполняет ту же самую функцию
+        #
+        # Выключаем
+        # - dupBranchBody
 
         # https://go-critic.com/overview.html#dupcase
         # Обнаруживает повторения в switch case которые не в силах обнаружить компилятор
+        #
         # До
         # case ys[0], ys[1], ys[2], ys[0], ys[4]:
         # После
         # case ys[0], ys[1], ys[2], ys[3], ys[4]:
-        - dupCase
+        #
+        # revive.identical-switch-conditions выполняет ту же самую функцию
+        #
+        # Выключаем
+        # - dupCase
 
         # https://go-critic.com/overview.html#dupimport
+        #
         # Обнаруживает дубликаты импортов под разными названиями
         # import (
         # 	"fmt"
         # 	printing "fmt" // Imported the second time
         # )
+        #
         # staticcheck.ST1019 выполняет ту же самую функцию
+        # revive.duplicated-imports выполняет ту же самую функцию
+        #
+        # Выбор сделан в пользу duplicated-imports
+        #
+        # Выключаем
         - dupImport
 
         # https://go-critic.com/overview.html#dupoption
@@ -1119,8 +1145,12 @@ linters:
         #        sort.Slice(xs, func(i, j int) bool {
         #             return xs[i].v < xs[i].v // Duplicated index
         #        })
+        #
         # staticcheck.SA4000 выполняет ту же самую функцию
-        - dupSubExpr
+        # revive.constant-logical-expr выполняет ту же самую функцию
+        #
+        # Выключаем в пользу revive.constant-logical-expr
+        # - dupSubExpr
 
         # https://go-critic.com/overview.html#dynamicfmtstring
         # Обнаруживает некорректные использования fmt.Sprintf, fmt.Errorf функций
@@ -1237,7 +1267,18 @@ linters:
 
         # https://go-critic.com/overview.html#importshadow
         # Определяет, когда импортированные имена пакетов затенены в назначениях.
-        - importShadow
+        #
+        # func main() {
+        # 	fmt.Println("Hello World!")
+        #
+        # 	fmt := "Hello World"
+        # 	_ = fmt
+        # }
+        #
+        # revive.import-shadowing выполняет ту же самую функцию
+        #
+        # Выключаем
+        # - importShadow
 
         # https://go-critic.com/overview.html#indexalloc
         # Обнаруживает когда вызов strings.Index можно заменить на bytes.Index вместо лишних аллокаций
@@ -1584,7 +1625,11 @@ linters:
         # func fn() (a, b, c, d float32, _ int, _ bool)
         # После
         # func fn() (resultStruct, bool)
-        - tooManyResultsChecker
+        #
+        # revive.function-result-limit выполняет ту же самую функцию
+        #
+        # Выключаем
+        # - tooManyResultsChecker
 
         # https://go-critic.com/overview.html#truncatecmp
         # Обнаруживает потенциальные случаи переполнения при конвертации числовых типов
@@ -1664,9 +1709,19 @@ linters:
         - unlambda
 
         # https://go-critic.com/overview.html#unnamedresult
+        #
         # Функция не может возвращать больше двух элементов благодаря gocritic.tooManyResultsChecker
         # Соответственно в случаях когда мы возвращаем 2 аргумента среди которых нет error мы обязаны их назвать
-        - unnamedResult
+        #
+        # В случае если мы возвращаем два агумента среди которых нет последней error мы обязаны их назвать
+        # func manyResults() (int, int) { return 0, 0 } // в таком случае обязаны назвать результаты функции
+        # func manyResults() (x, y int) { return 0, 0 } // Всё верно
+        #
+        # revive.confusing-results выполняет ту же самую функцию
+        #
+        # Выключаем
+        #
+        # - unnamedResult
 
         # https://go-critic.com/overview.html#unnecessaryblock
         # Обнаруживает неуместное использование блоков {...}
@@ -1763,8 +1818,8 @@ linters:
           # Папка с файлами содержащими правила
           rules: rules/*.go
 
-        tooManyResultsChecker:
-          maxResults: 2
+        # tooManyResultsChecker:
+        #   maxResults: 2
 
     gosec:
       config:
@@ -3456,116 +3511,394 @@ linters:
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#cognitive-complexity
+        # Считает когнитивную сложность функций
+        # После дополнительного аудита был сделан выбор в пользу gocognit
+        # gocognit выполняет ту же самую фукнцию
+        # Аудит в конце файла
+        # Выключаем
         - name: cognitive-complexity
-          disabled: false
+          disabled: true
           exclude: [""]
-          arguments: [7]
+          arguments: [10]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#comment-spacings
+        # Обнаруживает комментарии без пробела после //
+        # Исправляется go fmt
         - name: comment-spacings
           disabled: false
           exclude: [""]
-          arguments:
-            - mypragma
-            - otherpragma
+          arguments: []
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#comments-density
-        # Связан с коментами TODO разобрать позже
+        # Cчитает концентрацию комментариев на строку кода
+        # Агументом является желаемый процент комментариев относительно количества строк кода
+        #
+        # 10 строк комментариев на 100 строк кода = 10%
+        #
+        # Чем больше объем комментариев тем тяжелее будет поддерживать истинность комментариев
+        # Может привести к появлению достаточно большого количества ложных (обманчивых) комментариев
+        #
         # Выключаем
         - name: comments-density
           disabled: true
           exclude: [""]
-          arguments: [15]
+          arguments: [110]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#confusing-naming
+        # Обнаруживает поля структур с названиями отличающимися только заглавностью букв
+        #
+        # type Confusing struct {
+        # 	Field string // существует точно такое же поле field которое отличается лишь заглавность первой буквы
+        # 	field int
+        # }
+        #
         - name: confusing-naming
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#confusing-results
+        #
+        # В случае если мы возвращаем два агумента среди которых нет последней error мы обязаны их назвать
+        # func manyResults() (int, int) { return 0, 0 } // в таком случае обязаны назвать результаты функции
+        # func manyResults() (x, y int) { return 0, 0 } // Всё верно
+        #
+        # gocritic.unnamedResult выполняет ту же самую функцию
+        #
         - name: confusing-results
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#constant-logical-expr
+        #
+        # Сообщает о bool значениях известных в на этапе компиляции
+        #
+        # if 1 == 1 { do() }
+        #
+        # gocritic.dupSubExpr выполняет ту же самую функцию
+        # staticcheck.SA4000  выполняет ту же самую фукнцию
+        #
         - name: constant-logical-expr
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#context-as-argument
+        # Проверяет что контекст является первым аргументом функции
+        # func doContext(i int, ctx context.Context) {} // ПЛОХО сtx является вторым аргументов после i int
+        # func doContext(ctx context.Context, i int) {} // ХОРОШО ctx является первым аргументом
+        #
+        # Позволяет добавить настройку для аргументов которым разрешено идти перед context.Context
+        # func doContext(t *testing.T, ctx context.Context) {} // ХОРОШО
         - name: context-as-argument
           disabled: false
           exclude: [""]
           arguments:
-            - allow-types-before: "*testing.T,*github.com/user/repo/testing.Harness"
+            - allow-types-before: "*testing.T"
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#context-keys-type
+        #
+        # Запрещает использовать обычные значения как ключи в context.WithValue
+        # ctx = context.WithValue(ctx, "key", "value") // неверно
+        #
+        # type valueKey struct{}
+        # ctx = context.WithValue(ctx, valueKey{}, "value") // верно
+        #
+        # Это обусловлено тем что для отдельного типа пустой структуры
+        # мы сравниваем лишь данные рефлексии для типа
+        # а для строк нам необходимо будет сравнить ещё и саму строку
+        # context.Context.Value() имеет сложность O(n)
+        # Поэтому необходимо по возможности оптимизировать время на отдельную операцию поиска/сравнения
+        #
         - name: context-keys-type
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#cyclomatic
+        #
+        # gocognit выполняет ту же самую фукнцию
+        # revive.cognitive-complexity выполняет ту же самую функцию
+        #
+        # Был отключен в пользу линтеров оценивающих когнитивную сложность функций
+        # По скольку помимо оценки вложенности (которую эти линтеры так же оценивают)
+        # Необходимо оценивать общую сложность функций
+        #
+        # Выключаем
         - name: cyclomatic
-          disabled: false
+          disabled: true
           exclude: [""]
           arguments: [5]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#datarace
+        #
+        # Запрещает захватывать именованные возвратные перменные в go func() {}()
+        #
+        # func captureDatarace() (age int) {
+        # 	go func() { age++ }()
+        #
+        # 	return age
+        # }
         - name: datarace
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#deep-exit
+        #
+        # func captureDatarace() { log.Fatal("unexpected") }
+        #
+        # Запрещает вызывать функции приводящие к os.Exit вне main() или init() функций
         - name: deep-exit
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#defer
+        # Позволяет настроить правила касательно использования defer
+        #
+        # Существует 6 правил, все они по умолчанию включены в линтере
+        # Есть возможность оставить только необходимые
+        #
+        # 1. call-chain
+        # call-chain - запрещает цепочки вызовов в defer
+        # цепочкa вызовов
+        # getLogger будет запущен немедленно в момент постановки
+        # очереди в defer а функция которую он возвращает будет запущена
+        # по обычным правилам defer
+        #
+        # Данная программа выведет следующее
+        #
+        # called getLogger
+        # exit
+        # called getLogger result
+        #
+        # func main() {
+        # 	getLogger := func() func() {
+        # 		fmt.Println("called getLogger")
+        #
+        # 		return func() {
+        # 			fmt.Println("called getLogger result")
+        # 		}
+        # 	}
+        #
+        # 	defer getLogger()()
+        #
+        # 	fmt.Println("exit")
+        # }
+        #
+        # 2. loop
+        # loop - запрещает defer в циклах
+        #
+        # func ProcessFiles(filenames []string) {
+        # 	for _, name := range filenames {
+        # 		file, err := os.Open(name)
+        # 		if err != nil {
+        # 			return
+        # 		}
+        #
+        # 		defer func() { _ = file.Close() }() // Все файлы закроются только при выходе из функции!
+        #
+        # 		// работа с file...
+        # 	}
+        # }
+        #
+        # 3. method-call
+        # method-call - очень странный линтер, если ты словил это правило не специально ты тот ещё крендель
+        #
+        # Приведу пример срабатывания
+        # type Human struct{}
+        #
+        # func (Human) Hello() {}
+        #
+        # func main() {
+        # 	defer Human.Hello(Human{})
+        # }
+        #
+        # Срабатывает только если:
+        #
+        # 1. Метод обращается по значению
+        # 2. Вызван именно через конструкцию Type.Method(TypeValue)
+        #
+        # 4. recover
+        # recover - вызов функции recover() должен быть в блоке defer
+        #
+        # func main() {
+        # 	_ = recover() // Неправильно
+        # }
+        #
+        # func main() {
+        # 	defer func() { _ = recover() }() // Правильно
+        # }
+        #
+        # 5. immediate-recover
+        # immediate-recover - если мы передаём recover() как аргумент
+        # функции которую помещаем в defer, функция recover() вызывается незамедлительно
+        #
+        # helper := func(any) {}
+        # defer helper(recover()) // recover выполнится немедленно
+        #
+        # 6. return
+        # return - возвращать значения из defer функции бесполезно
+        #
+        # func main() {
+        # 	defer func() error {
+        # 		return io.ErrUnexpectedEOF
+        # 	}()
+        # }
+        #
         - name: defer
           disabled: false
           exclude: [""]
           arguments:
             [
               [
-                "call-chain",
-                "loop",
-                "method-call",
-                "recover",
-                "immediate-recover",
-                "return",
+                loop,
+                call-chain,
+                method-call,
+                recover,
+                immediate-recover,
+                return,
               ],
             ]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#dot-imports
+        # Запрещает использование dot-import
+        #
+        # import (
+        #   . "fmt" // добавляет все методы в зону видимости без явного обращения к названию пакета
+        # )
+        #
         - name: dot-imports
           disabled: false
           exclude: [""]
           arguments:
-            - allowed-packages:
-                ["github.com/onsi/ginkgo/v2", "github.com/onsi/gomega"]
+            - allowed-packages: []
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#duplicated-imports
+        # Обнаруживает дубликаты импортов
+        #
+        # До
+        # import (
+        # 	"fmt"
+        # 	format "fmt"
+        # )
+        # После
+        #
+        # import (
+        #   "fmt"
+        # )
+        #
+        # staticcheck.ST1019 выполняет ту же самую функцию
+        # gocritic.dupImport выполняет ту же самую функцию
+        #
+        # Выбор сделан в пользу gocritic.dupImport из-за более детального сообщения
+        # В нем подсвечены строки дублирующих линтеров
         - name: duplicated-imports
-          disabled: false
+          disabled: true
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#early-return
+        #
+        # Проверяет блоки if else на возможность замены с сокращением блока else
+        #
+        # Базовые случаи
+        #
+        # До
+        # func earlyReturn() {
+        # 	condition := 10%2 == 0
+        #
+        # 	if condition {
+        # 		log.Println("Hello World!")
+        # 	} else {
+        # 		return
+        # 	}
+        # }
+        #
+        # После
+        # func earlyReturn() {
+        # 	condition := 10%2 == 0
+        #
+        # 	if !condition {
+        # 		return
+        # 	}
+        #
+        # 	log.Println("Hello World!")
+        # }
+        #
+        # До
+        # user := ""
+        #
+        # if user == "" {
+        # 	// пустой блок
+        # } else {
+        # 	return
+        # }
+        #
+        # После
+        #
+        # user := ""
+        #
+        # if user != "" {
+        # 	return
+        # }
         - name: early-return
           disabled: false
           exclude: [""]
-          arguments:
-            - "preserve-scope"
-            - "allow-jump"
+          arguments: []
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#empty-block
+        # Сообщает о пустых блоках
+        #
+        # if 10%2 == 0 {}
+        # if true {} else {}
+        # for {}
         - name: empty-block
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#empty-lines
+        # Сообщает о пустых линиях которые можно сократить
+        # Если вы используете форматирование достаточно тяжело схлопотать
+        #
+        # func main() { // пустая линия после этой строчки
+        #
+        # 	log.Println("Hello World!")
+        # }
+        #
+        # Выклядит как частный случай whitespace
+        #
+        # whitespace выполняет ту же самую функцию
+        #
+        # Однако настраивается и имеет более широкий функционал
+        # Выключаем
         - name: empty-lines
-          disabled: false
+          disabled: true
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#enforce-map-style
+        # Регулирует способ инициализации map
+        #
+        # Предлагаемый набор опций
+        #
+        # any  - map можно ициализировать любым путём, по сути выключает правило
+        # make - map можно инициализовать только с помощью make(map[keyType]valueType)
+        # literal - map можно инициализовать тольк через map[keyType]valueType
+        #
+        # Если вы инициализируете через make(map[keyType]valueType, size) линтер не будет обращать на это внимания
+        # независимо от выбранных опций
         - name: enforce-map-style
           disabled: false
           exclude: [""]
           arguments:
             - "make"
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#enforce-repeated-arg-type-style
+        #
+        # Отвечает за обеспечение единообразия в объявлении повторяющихся типов аргументов и возвращаемых значений в функциях
+        #
+        # func(a, b int) (x, y int) // short style
+        # func(a int, b int) (x int, y int) // full style
         - name: enforce-repeated-arg-type-style
           disabled: false
           exclude: [""]
           arguments:
-            - "short"
-            # Or this parameter:
-            - func-arg-style: "full"
+            - func-arg-style: "short"
               func-ret-val-style: "short"
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#enforce-slice-style
@@ -3582,23 +3915,77 @@ linters:
           exclude: [""]
           arguments: ["any"]
 
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#error-naming
-        - name: error-naming
+        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#enforce-switch-style
+        #
+        # Регулирует default в switch выражениях а именно его порядок и наличие
+        #
+        # switch x {
+        #   default: // default идёт не последним, выключается allowDefaultNotLast
+        #   case 1:
+        # }
+        #
+        # switch x {
+        #   case 1:
+        #   case 2:
+        # } // default отсутствует, отключается allowNoDefault
+        #
+        # даже если в default мы ничего не собираемся делать он должен быть
+        # прочие линтеры на это не ругаются
+        - name: enforce-switch-style
           disabled: false
+          exclude: [""]
+          arguments: []
+
+        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#error-naming
+        # Все глобальные переменные типа error должны начинаться с (e|E)rr
+        #
+        # errname выполняет ту же самую функцию
+        # Однако распространяется и на типы имплементирующие error
+        #
+        # Выключаем
+        - name: error-naming
+          disabled: true
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#error-return
+        # В возвращаемых значениях переменная с типом error
+        # должна быть последней
+        #
+        # func do() (error, int)  // НЕВЕРНО error является первым аргументом
+        # func do() (int, error)  // ВЕРНО error является последним аргументом
         - name: error-return
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#error-strings
+        #
+        #
+        # Строки в errors.New и fmt.Errorf не должны начинаться с большой буквы
+        # или заканчиваться на знаки пунктуации
+        #
+        # _ = fmt.Errorf("not found.") // НЕВЕРНО // заканчивается на '.'
+        #
+        # Аналогично для errors.New
+        #
+        # _ = errors.New("not found.") // НЕВЕРНО // заканчивается на '.'
+        #
+        # staticcheck.ST1005 выполняет ту же самую функцию
+        # Однако он реагирует на заглавные буквы
+        #
+        # Выключаем
         - name: error-strings
-          disabled: false
+          disabled: true
           exclude: [""]
-          arguments:
-            - "xerrors.New"
+          arguments: []
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#errorf
+        #
+        # Предлагает заменить
+        # _ = errors.New(fmt.Sprintf("my %d format", 0))
+        # На
+        # _ = fmt.Errorf("my %d format", 0)
+        #
+        # staticcheck.S1028 выполняет ту же самую функцию
         - name: errorf
           disabled: false
           exclude: [""]
@@ -3621,7 +4008,12 @@ linters:
             - "disable-checks-on-variables"
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#file-header
-        # связан с коментами TODO разобрать позже
+        #
+        # Проверяет что файл начинатся с определенного формата
+        # Удобно при введении лицензии когда вам необходимо чтобы каждый файл начинался с определенного текста
+        #
+        # goheader выполняет ту же самую функцию
+        #
         # Выключаем
         - name: file-header
           disabled: true
@@ -3630,6 +4022,7 @@ linters:
             - This is the text that must appear at the top of source files.
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#file-length-limit
+        # Устанавливает максимально допустимую длину файла
         - name: file-length-limit
           disabled: false
           exclude: [""]
@@ -3652,126 +4045,343 @@ linters:
         - name: flag-parameter
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#function-length
+        #
+        # funlen выполняет ту же самую функцию
+        # Однако имеет опции для настроки
+        #
+        # Выключаем
         - name: function-length
-          disabled: false
+          disabled: true
           exclude: [""]
           arguments: [40, 0]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#function-result-limit
+        #
+        # Ограничивает количество выходных параметров функции
+        #
+        # Функция ниже имеет три возвращаемых аргумента
+        # при максимально допустимом 2
+        #
+        # func returnValues() (a, b, c int) { return 0, 0, 0 }
+        #
         - name: function-result-limit
           disabled: false
           exclude: [""]
-          arguments: [3]
+          arguments: [2]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#get-return
+        #
+        # Если функцию начинается с get она должна иметь возвращаемое значение
+        #
+        # func getNothing() {} // НЕПРАВИЛЬНО функция ничего не возвращает
+        # func getInt() int { return 0 } // ПРАВИЛЬНО
+        # func getError() error { return io.ErrUnexpectedEOF } // ПРАВИЛЬНО
+        #
         - name: get-return
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#identical-branches
+        #
+        # Обнаруживает if {} else {} блоки с одинаковым кодов в if и else
+        #
+        # if 10%2 == 0 {
+        # 		log.Println("Hello World!") // Одно и тоже условие в обеих ветках
+        # } else {
+        # 		log.Println("Hello World!") // Одно и тоже условие в обеих ветках
+        # }
         - name: identical-branches
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#identical-ifelseif-branches
+        #
+        # Обнаруживает if {} else if {} блоки с одинаковым кодов в if и else if
+        #
+        # if 10%2 == 0 {
+        # 	log.Println("Hello World!") // Одно и тоже условие в обеих ветках
+        # } else if 10%5 == 0 {
+        # 	log.Println("Hello World!") // Одно и тоже условие в обеих ветках
+        # }
         - name: identical-ifelseif-branches
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#identical-ifelseif-conditions
+        # Обнаруживает идентичные условие в ветка if {} else if {}
+        #
+        # if 10%2 == 0 { // Идентичное условие
+        # 	log.Println("Hello World!")
+        # } else if 10%2 == 0 { // Идентичное услове
+        # 	log.Println("Hello World!")
+        # }
         - name: identical-ifelseif-conditions
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#identical-switch-branches
+        #
+        # Должен сообщать об одинаковых ветках switch
+        #
+        # Однако на код ниже он не реагирует, что является явной недоработкой
+        #
+        # switch {
+        # case 10%2 == 0:
+        # 	log.Println("Hello World!")
+        # case 10%5 == 0:
+        # 	log.Println("Hello World!")
+        # default:
+        # 	log.Println("Hello World!")
+        # }
+        #
+        # value := 0
+        #
+        # switch {
+        # case value == 1:
+        # 	log.Println("Hello World!")
+        # case value == 2:
+        # 	log.Println("Hello World!")
+        # default:
+        # 	log.Println("Hello World!")
+        # }
+        #
+        # На следующие примеры кода он создаст issue
+        #
+        # switch 10%2 == 0 {
+        # case true:
+        # 	log.Println("Hello World!") // Одно и тоже условие во всех ветках
+        # case false:
+        # 	log.Println("Hello World!") // Одно и тоже условие во всех ветках
+        # default:
+        # 	log.Println("Hello World!") // Одно и тоже условие во всех ветках
+        # }
+        #
+        # value := 0
+        #
+        # switch value {
+        # case 1:
+        # 	log.Println("Hello World!") // Одно и тоже условие во всех ветках
+        # case 2:
+        # 	log.Println("Hello World!") // Одно и тоже условие во всех ветках
+        # default:
+        # 	log.Println("Hello World!") // Одно и тоже условие во всех ветках
+        # }
+        #
         - name: identical-switch-branches
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#identical-switch-conditions
+        #
+        # Сообщает об идентичных ветках в switch case
+        # value := 0
+        #
+        # switch {
+        # case value == 1: // идентичные ветки
+        # 	log.Println("Hello World!")
+        # case value == 1: // идентичные ветки
+        # 	log.Println("Hello World!")
+        # default:
+        # 	log.Println("Hello World!")
+        # }
+        #
         - name: identical-switch-conditions
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#if-return
+        #
+        # Обнаруживает избыточные проверки вида if err != nil { return err }; return nil
+        #
+        # Пример 1: Избыточная проверка - сработает линтер
+        #
+        # До
+        # func processDataRedundant() error {
+        # 	if err := riskyOperation(true); err != nil {
+        # 		return err
+        # 	}
+        #
+        # 	return nil
+        # }
+        #
+        # После
+        # func processDataRedundant() error {
+        # 	return riskyOperation(true)
+        # }
+        #
+        # Пример 2: В цепочке вызовов - сработает линтер
+        #
+        # До
+        # func processChain() error {
+        # 	if err := alwaysSucceeds(); err != nil {
+        # 		return err
+        # 	}
+        #
+        # 	if err := riskyOperation(true); err != nil {
+        # 		return err
+        # 	}
+        #
+        # 	return nil
+        # }
+        #
+        # После
+        # func processChain() error {
+        # 	if err := alwaysSucceeds(); err != nil {
+        # 		return err
+        # 	}
+        #
+        # 	return riskyOperation(true)
+        # }
+        #
         - name: if-return
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#import-alias-naming
+        # Позволяет настроить паттрены для названий alias импортов
+        # По умолчанию запрещены символы верхнего регистра
+        #
+        # import Os "os" // alias в верхнем регистре
+        #
+        # Позволяет настроить запрещенные и разрешенные паттерны
         - name: import-alias-naming
           disabled: false
           exclude: [""]
-        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#imports-blocklist
-        - name: imports-blocklist
+
+        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#import-shadowing
+        #
+        # Определяет, когда импортированные имена пакетов затенены в назначениях.
+        #
+        # func main() {
+        # 	fmt.Println("Hello World!")
+        #
+        # 	fmt := "Hello World"
+        # 	_ = fmt
+        # }
+        - name: import-shadowing
           disabled: false
+          exclude: [""]
+
+        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#imports-blocklist
+        #
+        # Позволяет указать список импортов которые запрещены к использованию
+        #
+        # depguard выполняет ту же самую функцию
+        #
+        # Однако является полноценным линтеров и имеет опции для настройки
+        #
+        # Выключаем
+        - name: imports-blocklist
+          disabled: true
           exclude: [""]
           arguments:
             - "crypto/md5"
             - "crypto/sha1"
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#increment-decrement
+        #
+        # Предлагает заменить += 1 на ++ и -= 1 на -- в операциях с числам
+        #
+        # var counter int
+        #
+        #
+        # До
+        # counter += 1
+        # counter -= 1
+        #
+        # После
+        # counter++
+        # counter--
         - name: increment-decrement
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#indent-error-flow
+        #
         - name: indent-error-flow
           disabled: true
           exclude: [""]
           arguments: [80]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#max-control-nesting
         - name: max-control-nesting
           disabled: false
           exclude: [""]
           arguments: [3]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#max-public-structs
         - name: max-public-structs
           disabled: false
           exclude: [""]
           arguments: [3]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#modifies-parameter
         - name: modifies-parameter
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#modifies-value-receiver
         - name: modifies-value-receiver
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#nested-structs
         - name: nested-structs
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#optimize-operands-order
         - name: optimize-operands-order
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#package-comments
         # Связан с коментами TODO разобрать позже
         # Выключаем
         - name: package-comments
           disabled: true
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#package-directory-mismatch
         # Имя пакета должно совпадать с названием его директории
+        #
         # Мне не нравится
+        #
         # Иногда я хочу чтобы моя директория не содержала лишних слов
         # однако при импорте я не хочу передирать миллион вариантов с таким же названием
         # поэтому диреторию я назову service а название пакета servicecounter
+        #
         # Выключаем
         - name: package-directory-mismatch
           disabled: true
           exclude: [""]
           arguments:
             - ignore-directories: ["testcases", "testinfo"]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#range
         - name: range
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#range-val-address
         - name: range-val-address
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#range-val-in-closure
         - name: range-val-in-closure
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#receiver-naming
         - name: receiver-naming
           disabled: false
           exclude: [""]
           arguments:
             - max-length: 2
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redefines-builtin-id
         # Обнаруживает имена переменных, функций перекрывающих ключевые имена стандартной библиотеки
         # predeclared выполняет ту же самую фукнцию
@@ -3780,18 +4390,22 @@ linters:
         - name: redefines-builtin-id
           disabled: true
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redundant-build-tag
         - name: redundant-build-tag
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redundant-import-alias
         - name: redundant-import-alias
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redundant-test-main-exit
         - name: redundant-test-main-exit
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#string-format
         - name: string-format
           disabled: false
@@ -3806,10 +4420,12 @@ linters:
             - - panic
               - '/^[^\n]*$/'
               - must not contain line breaks
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#string-of-int
         - name: string-of-int
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#struct-tag
         - name: struct-tag
           disabled: false
@@ -3817,34 +4433,41 @@ linters:
           arguments:
             - "json,inline"
             - "bson,outline,gnu"
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#superfluous-else
         - name: superfluous-else
           disabled: false
           exclude: [""]
           arguments:
             - "preserve-scope"
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#time-date
         - name: time-date
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#time-equal
         - name: time-equal
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#time-naming
         - name: time-naming
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unchecked-type-assertion
         - name: unchecked-type-assertion
           disabled: false
           exclude: [""]
           arguments:
             - accept-ignored-assertion-result: true
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unconditional-recursion
         - name: unconditional-recursion
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unexported-naming
         - name: unexported-naming
           disabled: false
@@ -3873,62 +4496,75 @@ linters:
         - name: unnecessary-format
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unnecessary-stmt
         - name: unnecessary-stmt
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unreachable-code
         - name: unreachable-code
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unsecure-url-scheme
         - name: unsecure-url-scheme
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unused-parameter
         - name: unused-parameter
           disabled: false
           exclude: [""]
           arguments:
             - allow-regex: "^_"
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unused-receiver
         - name: unused-receiver
           disabled: false
           exclude: [""]
           arguments:
             - allow-regex: "^_"
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-any
         # modernize.any выполняет ту же самую фукнцию
         # Выключаем
         - name: use-any
           disabled: true
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-errors-new
         - name: use-errors-new
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-fmt-print
         - name: use-fmt-print
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-waitgroup-go
         # modernize.waitgroup выполняет ту же самую функцию
         # Выключаем
         - name: use-waitgroup-go
           disabled: true
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#useless-break
         - name: useless-break
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#useless-fallthrough
         - name: useless-fallthrough
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#var-declaration
         - name: var-declaration
           disabled: false
           exclude: [""]
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#var-naming
         - name: var-naming
           disabled: false
@@ -3942,10 +4578,12 @@ linters:
                 extra-bad-package-names:
                   - helpers
                   - models
+
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#waitgroup-by-value
         - name: waitgroup-by-value
           disabled: false
           exclude: [""]
+
     spancheck:
       checks:
         # Проверяет вызов .End()
@@ -4147,9 +4785,31 @@ linters:
 
         # Inappropriate key in call to 'context.WithValue'.
         # https://staticcheck.dev/docs/checks/#SA1029
-        - SA1029
+        #
+        # Запрещает использовать обычные значения как ключи в context.WithValue
+        # ctx = context.WithValue(ctx, "key", "value") // неверно
+        #
+        # type valueKey struct{}
+        # ctx = context.WithValue(ctx, valueKey{}, "value") // верно
+        #
+        # Это обусловлено тем что для отдельного типа пустой структуры
+        # мы сравниваем лишь данные рефлексии для типа
+        # а для строк нам необходимо будет сравнить ещё и саму строку
+        # context.Context.Value() имеет сложность O(n)
+        # Поэтому необходимо по возможности оптимизировать время на отдельную операцию поиска/сравнения
+        #
+        # revive.context-keys-type выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - SA1029
 
         # Invalid argument in call to a 'strconv' function.
+        # Валидирует входные значения в функции strconv
+        #
+        # strconv.ParseInt("100", 100, 100)
+        #
+        # Второй аргумент функции - base должен быть 0, 2 <= base <= 36
+        # Третий аргумент функциюю - bitSize должен быть 0 <= bitSize <= 64
         # https://staticcheck.dev/docs/checks/#SA1030
         - SA1030
 
@@ -4186,7 +4846,17 @@ linters:
         - SA3001
 
         # Binary operator has identical expressions on both sides.
+        #
         # https://staticcheck.dev/docs/checks/#SA4000
+        #         # Обнаруживает подозрительные дублирующиеся выражения
+        #        sort.Slice(xs, func(i, j int) bool {
+        #             return xs[i].v < xs[i].v // Duplicated index
+        #        })
+        #
+        # gocritic.dupSubExpr выполняет ту же самую функцию
+        # revive.constant-logical-expr выполняет ту же самую функцию
+        #
+        # Выключаем в пользу revive.constant-logical-expr
         # - SA4000
 
         # '&*x' gets simplified to 'x', it does not copy 'x'.
@@ -4235,7 +4905,19 @@ linters:
 
         # An if/else if chain has repeated conditions and no side-effects; if the condition didn't match the first time, it won't match the second time, either.
         # https://staticcheck.dev/docs/checks/#SA4014
-        - SA4014
+        #
+        # Обнаруживает идентичные условие в ветка if {} else if {}
+        #
+        # if 10%2 == 0 { // Идентичное условие
+        # 	log.Println("Hello World!")
+        # } else if 10%2 == 0 { // Идентичное услове
+        # 	log.Println("Hello World!")
+        # }
+        #
+        # revive.identical-ifelseif-conditions выполняет ту же самую функцию
+        #
+        # Выключаем
+        # - SA4014
 
         # Calling functions like 'math.Ceil' on floats converted from integers doesn't do anything useful.
         # https://staticcheck.dev/docs/checks/#SA4015
@@ -4425,13 +5107,36 @@ linters:
 
         # Dot imports are discouraged.
         # https://staticcheck.dev/docs/checks/#ST1001
-        - ST1001
+        # Запрещает использование dot-import
+        #
+        # import (
+        #   . "fmt" // добавляет все методы в зону видимости без явного обращения к названию пакета
+        # )
+        #
+        # revive.dot-imports выполняет ту же самую функцию
+        # Выключаем
+        # - ST1001
+
         # Poorly chosen identifier.
         # https://staticcheck.dev/docs/checks/#ST1003
         - ST1003
+
         # Incorrectly formatted error string.
         # https://staticcheck.dev/docs/checks/#ST1005
+        #
+        # Строки в errors.New и fmt.Errorf не должны начинаться с большой буквы
+        # или заканчиваться на знаки пунктуации
+        #
+        # _ = fmt.Errorf("Not found") // НЕВЕРНО // начинается с большой буквы
+        # _ = fmt.Errorf("not found.") // НЕВЕРНО // заканчивается на '.'
+        #
+        # Аналогично для errors.New
+        #
+        # _ = errors.New("Not found") // НЕВЕРНО // начинается с большой буквы
+        # _ = errors.New("not found.") // НЕВЕРНО // заканчивается на '.'
+        #
         - ST1005
+
         # Poorly chosen receiver name.
         # https://staticcheck.dev/docs/checks/#ST1006
         - ST1006
@@ -4462,89 +5167,137 @@ linters:
 
         # Importing the same package multiple times.
         # https://staticcheck.dev/docs/checks/#ST1019
+        # Обнаруживает дубликаты импортов под разными названиями
+        # import (
+        # 	"fmt"
+        # 	printing "fmt" // Imported the second time
+        # )
+        #
+        # gocritic.dupImport выполняет ту же самую функцию
+        # revive.duplicated-imports выполняет ту же самую функцию
+        #
+        # Выбор сделан в пользу duplicated-imports
+        #
+        # Выключаем
         # - ST1019
 
         # The documentation of an exported function should start with the function's name.
         # https://staticcheck.dev/docs/checks/#ST1020
         - ST1020
+
         # The documentation of an exported type should start with type's name.
         # https://staticcheck.dev/docs/checks/#ST1021
         - ST1021
+
         # The documentation of an exported variable or constant should start with variable's name.
         # https://staticcheck.dev/docs/checks/#ST1022
         - ST1022
+
         # Redundant type in variable declaration.
         # https://staticcheck.dev/docs/checks/#ST1023
         - ST1023
+
         # Use plain channel send or receive instead of single-case select.
         # https://staticcheck.dev/docs/checks/#S1000
         - S1000
+
         # Replace for loop with call to copy.
         # https://staticcheck.dev/docs/checks/#S1001
         - S1001
+
         # Omit comparison with boolean constant.
         # https://staticcheck.dev/docs/checks/#S1002
         - S1002
+
         # Replace call to 'strings.Index' with 'strings.Contains'.
         # https://staticcheck.dev/docs/checks/#S1003
         - S1003
+
         # Replace call to 'bytes.Compare' with 'bytes.Equal'.
         # https://staticcheck.dev/docs/checks/#S1004
         - S1004
+
         # Drop unnecessary use of the blank identifier.
         # https://staticcheck.dev/docs/checks/#S1005
         - S1005
+
         # Use "for { ... }" for infinite loops.
         # https://staticcheck.dev/docs/checks/#S1006
         - S1006
+
         # Simplify regular expression by using raw string literal.
         # https://staticcheck.dev/docs/checks/#S1007
         - S1007
+
         # Simplify returning boolean expression.
         # https://staticcheck.dev/docs/checks/#S1008
         - S1008
+
         # Omit redundant nil check on slices, maps, and channels.
         # https://staticcheck.dev/docs/checks/#S1009
         - S1009
+
         # Omit default slice index.
         # https://staticcheck.dev/docs/checks/#S1010
         - S1010
+
         # Use a single 'append' to concatenate two slices.
         # https://staticcheck.dev/docs/checks/#S1011
         - S1011
+
         # Replace 'time.Now().Sub(x)' with 'time.Since(x)'.
         # https://staticcheck.dev/docs/checks/#S1012
         - S1012
+
         # Use a type conversion instead of manually copying struct fields.
         # https://staticcheck.dev/docs/checks/#S1016
         - S1016
+
         # Replace manual trimming with 'strings.TrimPrefix'.
         # https://staticcheck.dev/docs/checks/#S1017
         - S1017
+
         # Use "copy" for sliding elements.
         # https://staticcheck.dev/docs/checks/#S1018
         - S1018
+
         # Simplify "make" call by omitting redundant arguments.
         # https://staticcheck.dev/docs/checks/#S1019
         - S1019
+
         # Omit redundant nil check in type assertion.
         # https://staticcheck.dev/docs/checks/#S1020
         - S1020
+
         # Merge variable declaration and assignment.
         # https://staticcheck.dev/docs/checks/#S1021
         - S1021
+
         # Omit redundant control flow.
         # https://staticcheck.dev/docs/checks/#S1023
         - S1023
+
         # Replace 'x.Sub(time.Now())' with 'time.Until(x)'.
         # https://staticcheck.dev/docs/checks/#S1024
         - S1024
+
         # Don't use 'fmt.Sprintf("%s", x)' unnecessarily.
         # https://staticcheck.dev/docs/checks/#S1025
         - S1025
+
         # Simplify error construction with 'fmt.Errorf'.
         # https://staticcheck.dev/docs/checks/#S1028
-        - S1028
+        #
+        # Предлагает заменить
+        # _ = errors.New(fmt.Sprintf("my %d format", 0))
+        # На
+        # _ = fmt.Errorf("my %d format", 0)
+        #
+        # revive.errorf выполняет ту же самую функцию
+        #
+        # Выключаем
+        # - S1028
+
         # Range over the string directly.
         # https://staticcheck.dev/docs/checks/#S1029
         - S1029
@@ -4592,7 +5345,26 @@ linters:
 
         # Convert untagged switch to tagged switch.
         # https://staticcheck.dev/docs/checks/#QF1002
+        #
+        # Сообщает о случаях где мы может использовать тегированный switch
+        # То есть switch по значению
+        #
+        # До
+        # switch {
+        # case x == 1 || x == 2, x == 3:
+        # case x == 4:
+        # default:
+        # }
+        #
+        # После
+        # switch x {
+        # case 1, 2, 3:
+        # case 4:
+        # default:
+        # }
+        #
         - QF1002
+
         # Convert if/else-if chain to tagged switch.
         # https://staticcheck.dev/docs/checks/#QF1003
         - QF1003
@@ -4645,15 +5417,20 @@ linters:
           # Затратив при этом лишние строчки на проверку if !ok и сам вызов паники или t.Fatal
           - forcetypeassert
 
-      - linters:
+      - path: _test\.go
+        linters:
+          - revive
+
+        text: file-length-limit
+
+      - source: "^func Test"
+        linters:
           # Излишне валидировать тестовые функции для этих линтеров
           # Каждый из этих линтеров так или иначе привязан к размеру функций
           # Тестовые функции не всегда можно сделать меньше или проще
           # При этом для остальных функций которые мы используем в тестах
           # соблюдение правил длины и сложности и когнитивной сложности сохраняются
           - gocognit
-
-        source: "^func Test"
 
 formatters:
   enable:
@@ -4707,8 +5484,94 @@ issues:
 #
 # На этом этапе выпадают cyclop и gocognit
 #
+# Тест 1 Сложные логические выражения
+# func test1(a, b, c, d bool) {
+# 	if a && b && (c || d) && (a || b) {
+# 	}
+# }
+#
+# gocognit: 4
+# revive.cognitive-complexity: 4
+#
+#
+# Тест 2 Вложенные if-else цепочки
+# func test2(x int) {
+# 	if x > 0 { // revive: +1, gocognit: +1
+# 		if x > 10 { // revive: +1 + 1, gocognit: +1 + 1
+# 		}
+# 	} else if x < -5 { // revive: +1, gocognit: +1
+# 		if x < -10 { // revive: +1 + 1, gocognit: +1 + 1
+# 		}
+# 	} else if x == 0 { // revive: +1, gocognit: +1
+# 	}
+# }
 #
 #
 #
+# gocognit: 7
+# revive.cognitive-complexity: 7
 #
 #
+# Тест 3 Рекурсия + сложные условия
+#
+# func factorial(n int) int {
+# 	if n <= 1 {
+# 		return 1
+# 	}
+#
+# 	if n > 10 && n < 100 {
+# 		return n * factorial(n-1)
+# 	}
+#
+# 	return n * factorial(n-1)
+# }
+#
+# gocognit: 5
+# revive.cognitive-complexity: 3
+#
+# gocognit здесь добавил по баллу за вызов рекурсивной функции
+# gocognit добавляет балл за КАЖДЫЙ вызов рекрсии так как revive добавляет лишь один балл за использование рекурсии
+#
+# Данное предположение основано на следующем примере
+#
+# recursion1:
+#   gocognit: 2
+#   revive.cognitive-complexity: 2
+#
+# recursion2:
+#   gocognit: 5
+#   revive.cognitive-complexity: 3
+#
+#   Здесь мы заменили вызов каждой функции на рекурсию
+#   gocognit увеличил оценку на 3 балла за каждый рекурсионных вызов
+#   revive.cognitive-complexity увеличил всег она 1 балл, просто за наличие рекурсии
+#
+# func recursion1(x int) int {
+# 	if 100 > 0 {
+# 		return x * nonRecursion(1-100)
+# 	}
+#
+# 	if 14 > 75 {
+# 		return x * nonRecursion(1-1000)
+# 	}
+#
+# 	return nonRecursion(x - 1)
+# }
+#
+# func recursion2(x int) int {
+# 	if 100 > 0 {
+# 		return x * recursion2(1-100)
+# 	}
+#
+# 	if 14 > 75 {
+# 		return x * recursion2(1-1000)
+# 	}
+#
+# 	return recursion2(x - 1)
+# }
+#
+# func nonRecursion(int) int {
+# 	return 0
+# }
+#
+# С небольшим перевесом здесь побеждает gocognit за дополнительные баллы за рекурсивные вызовы
