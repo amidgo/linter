@@ -3407,14 +3407,18 @@ linters:
       # directives:
       #   - name: specify-disable-reason
       #     severity: error
+      #
       # Sets the default failure confidence.
       # This means that linting errors with less than 0.8 confidence will be ignored.
       # Default: 0.8
-      confidence: 0
+      # Не ставьте на 0 иначе посчитает как отсутствие значения
+      confidence: 0.01
+      #
       # Revive handles the default rules in a way that can be unexpected:
       # - If there are no explicit rules, the default rules are used.
       # - If there is at least one explicit rule, the default rules are not used.
       # Run `GL_DEBUG=revive golangci-lint run --enable-only=revive` to see default, all available rules, and enabled rules.
+      #
       rules:
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#add-constant
         # Проверяет "магические" значения строк и чисел которые необходимо заменить на константы
@@ -3837,10 +3841,57 @@ linters:
         # if user != "" {
         # 	return
         # }
+        #
+        # Есть две возможных опции
+        #
+        # 1. allow-jump
+        # allow-jump добавляет к if else так же возможность заменять код с помощью continue, break
+        #
+        # bools := []bool{true, true, true, false}
+        #
+        # До
+        # for _, flag := range bools {
+        # 	if flag {
+        # 		if !flag {
+        # 			fmt.Println("Hello World")
+        # 		}
+        # 	}
+        # }
+        #
+        # После
+        # bools := []bool{true, true, true, false}
+        #
+        # for _, flag := range bools {
+        # 	if !flag {
+        # 		continue
+        # 	}
+        #
+        # 	if !flag {
+        # 		fmt.Println("Hello World")
+        # 	}
+        # }
+        #
+        # 2. preserve-scope
+        # preserve-scope позволяет отключить issue для случаев когда в случае исправления будет увеличено
+        # количество переменных в зоне видимости
+        #
+        # Без данной опции на следующий код будет выдано предупреждение
+        #
+        # func fn3() {
+        # 	// Don't want to move the declaration of x here since it stays in scope afterward
+        # 	if x := slog.Default(); x != nil {
+        # 		log.Println("Hello World")
+        # 	} else {
+        # 		return
+        # 	}
+        #
+        # 	x := 1
+        # 	_ = x
+        # }
         - name: early-return
           disabled: false
           exclude: [""]
-          arguments: []
+          arguments: [allow-jump, preserve-scope]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#empty-block
         # Сообщает о пустых блоках
@@ -4042,6 +4093,27 @@ linters:
             - "^[_a-z][_a-z0-9]*\\.go$"
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#flag-parameter
+        # Отслеживает начилие bool переменных в фукнциях которые могут быть флагами
+        #
+        # func checkOrderOptimize(flag bool) {
+        # 	if flag {
+        # 		log.Println("Hello World!")
+        # 	}
+        # }
+        #
+        # На примеры ниже линтер не реагирует
+        #
+        # func checkOrderOptimize(flag bool) {
+        # 	_ = flag
+        # }
+        #
+        # type User struct {
+        # 	Flag bool
+        # }
+        #
+        # func checkOrderOptimize(flag bool) User {
+        # 	return User{Flag: flag}
+        # }
         - name: flag-parameter
           disabled: false
           exclude: [""]
@@ -4300,45 +4372,181 @@ linters:
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#indent-error-flow
         #
+        # Позволяет находить места в коде где есть возможность сократить вложенность кода
+        #
+        # До
+        # func process(value int) error {
+        # 	if value > 0 {
+        # 		return doSomething(value)
+        # 	} else {
+        # 		return errors.New("invalid value")
+        # 	}
+        # }
+        #
+        # После
+        # func process(value int) error {
+        # 	if value > 0 {
+        # 		return doSomething(value)
+        # 	}
+        #
+        # 	return errors.New("invalid value")
+        # }
+        #
+        #
+        # Есть возможность указать опцию preserveScope
+        #
+        # Линтер не будет предлагать исправлений если это увеличит количество переменных в скоупе
+        #
+        # Без данной опции для слующего кода будет выдано предупреждение
+        #
+        # func preserveScope() ([]byte, error) {
+        # 	if data, err := os.ReadFile("myfile"); err != nil {
+        # 		return nil, fmt.Errorf("os.ReadFile: %w", err)
+        # 	} else {
+        # 		return data, nil
+        # 	}
+        #
+        # 	panic("unreachable")
+        #
+        # 	return nil, nil
+        # }
         - name: indent-error-flow
+          disabled: false
+          exclude: [""]
+          arguments: [preserve-scope]
+
+        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#inefficient-map-lookup
+        # Правило пока не добавлено golangci-lint: 2.6.0
+        # - name: inefficient-map-lookup
+        #   disabled: false
+        #   exclude: [""]
+        #   arguments: []
+
+        # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#line-length-limit
+        # Сигнализирует о слишком длинных линиях
+        # lll выполняет ту же самую функцию
+        # Однако настраивается и сам по себе является отдельным линтеров
+        # предназначенным под эту задачу
+        #
+        # Выключаем
+        - name: line-length-limit
           disabled: true
           exclude: [""]
-          arguments: [80]
+          arguments: [120]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#max-control-nesting
+        # Устанавливает максимально допустимый уровень вложенности
         - name: max-control-nesting
           disabled: false
           exclude: [""]
           arguments: [3]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#max-public-structs
+        # Устанавливает максимально возможное количество экспортируемых функций в пакете
+        #
+        # Выключаем
         - name: max-public-structs
           disabled: false
           exclude: [""]
           arguments: [3]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#modifies-parameter
+        #
+        # Должен срабатывать на модификацию параметров и их передачу в slices.Delete, slices.DeleteFunc
+        #
+        # Однако на примеры ниже он не сработал
+        #
+        # func dropFirst(a []int) []int {
+        # 	a = slices.Delete(a, 0, 1)
+        #
+        # 	return a
+        # }
+        #
+        # func main() {
+        # 	data := []int{1, 2, 3}
+        # 	newData := dropFirst(data)
+        # 	fmt.Println(data)         // [2, 3, 0]
+        #   fmt.Println(newData)      // [2, 3]
+        # }
+        #
         - name: modifies-parameter
           disabled: false
           exclude: [""]
+          arguments: []
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#modifies-value-receiver
+        #
+        # Сообщает о случаях модификации полей структуры в методах расширения
+        # где структура передаётся по значению
+        #
+        # type User struct {
+        # 	Name string
+        # }
+        #
+        # До
+        # func (u User) SetName(name string) { // нет эффекта
+        # 	u.Name = name
+        # }
+        #
+        # После
+        # func (u *User) SetName(name string) {
+        #   u.Name = name
+        # }
+        #
         - name: modifies-value-receiver
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#nested-structs
+        # Запрещает вложенные анонимные структуры
+        #
+        # type Nested struct {
+        # 	Nested struct {
+        # 		Name string
+        # 	}
+        # }
         - name: nested-structs
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#optimize-operands-order
+        #
+        # Находит код где возможно оптимизировать порядок логических операндов
+        #
+        # Сначала должны идти условия bool операторы
+        # так как на их подсчет не нужно много усилий
+        # и только в случае если оно выполняется - переходить к вычислениям bool в функциях
+        #
+        # До
+        # func optimizeOperandOrder() {
+        #   condition := 10%2 == 0
+        # 	if getBool() && condition {
+        # 		log.Println("Hello World")
+        # 	}
+        # }
+        # После
+        # func optimizeOperandOrder() {
+        #   condition := 10%2 == 0
+        # 	if condition && getBool() { // поменяли порядок следования condition и getBool
+        # 		log.Println("Hello World")
+        # 	}
+        # }
         - name: optimize-operands-order
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#package-comments
         # Связан с коментами TODO разобрать позже
+        #
+        # Обязывает нас писать комментарии перед каждым пакетом
+        # Хотя бы один на весь пакет
+        #
+        # Комментарий должен следовать определённому формату
+        # // Package <package name> ...
+        #
+        # // Package linter need for testing linter issues
+        # package linter
+        #
         # Выключаем
         - name: package-comments
           disabled: true
@@ -4361,23 +4569,80 @@ linters:
             - ignore-directories: ["testcases", "testinfo"]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#range
+        #
+        # Обнаруживает случаи когда в range с двумя переменными вторая переменная не используется
+        #
+        # nums := []int{1, 2, 3}
+        #
+        #	for i, _ := range nums {
+        #		_ = i
+        #	}
+        #
+        #
+        # gofumpt устраняет это автоматически
         - name: range
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#range-val-address
+        #
+        # До go 1.22 у каждой переменной в цикле был один и тот же адрес
+        #
+        # nums := []int{1, 2, 3}
+        #
+        # numsRef := []*int{}
+        # for _, i := range nums {
+        # 	numsRef = append(numsRef, &i)
+        # }
+        #
+        # numsRef будет содержать один и тот же идентификатор
+        #
+        # В go 1.22+ не актуален
         - name: range-val-address
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#range-val-in-closure
+        #
+        # До go 1.22 у каждой переменной в цикле был один и тот же адрес
+        #
+        # nums := []int{1, 2, 3}
+        #
+        # mu := sync.Mutex{}
+        #
+        # numsRef := []int{}
+        #
+        # for _, i := range nums {
+        # 	go func() {
+        # 		mu.Lock()
+        # 		defer mu.Unlock()
+        #
+        # 		numsRef = append(numsRef, i)
+        # 	}()
+        # }
+        #
+        # Поведение непресказуемо
+        #
+        # В go 1.22+ не актуален
         - name: range-val-in-closure
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#receiver-naming
+        #
+        # Указывает максимально допустимую длину переменной обозначающей структуру в методах расширениях
+        #
+        # type Receiver struct{}
+        #
+        # func (receiver Receiver) Hello() { _ = receiver }
+        #
+        # Максимально допустимая длина настраивается
+        #
+        # Мне не нравится что меня ограничивают в фантазии
+        #
+        # Выключаем
         - name: receiver-naming
-          disabled: false
+          disabled: true
           exclude: [""]
           arguments:
             - max-length: 2
@@ -4545,6 +4810,7 @@ linters:
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-waitgroup-go
         # modernize.waitgroup выполняет ту же самую функцию
+        #
         # Выключаем
         - name: use-waitgroup-go
           disabled: true
@@ -4588,8 +4854,10 @@ linters:
       checks:
         # Проверяет вызов .End()
         - end
+
         # Проверяет запись ошибки в спан если ошибка всё таки возвращается
         - record-error
+
         # Проверяет постановку статуса в span
         - set-status
 
@@ -4873,7 +5141,29 @@ linters:
 
         # Field assignment that will never be observed. Did you mean to use a pointer receiver?.
         # https://staticcheck.dev/docs/checks/#SA4005
-        - SA4005
+        #
+        # Сообщает о случаях модификации полей структуры в методах расширения
+        # где структура передаётся по значению
+        #
+        # type User struct {
+        # 	Name string
+        # }
+        #
+        # До
+        # func (u User) SetName(name string) { // нет эффекта
+        # 	u.Name = name
+        # }
+        #
+        # После
+        # func (u *User) SetName(name string) {
+        #   u.Name = name
+        # }
+        #
+        # revive.modifies-value-receiver Выполняет ту же самую функцию
+        #
+        # Выключаем
+        #
+        # - SA4005
 
         # A value assigned to a variable is never read before being overwritten. Forgotten error check or dead code?.
         # https://staticcheck.dev/docs/checks/#SA4006
@@ -4885,6 +5175,21 @@ linters:
 
         # A function argument is overwritten before its first use.
         # https://staticcheck.dev/docs/checks/#SA4009
+        #
+        # Сообщает об изменении параметра функции до первого использования
+        #
+        # В этом параметре нет смысла так как его всегда переопределяют
+        #
+        # До
+        # func modifyParam(a int) int {
+        # 	a = 100
+        #
+        # 	return a
+        # }
+        #
+        # После
+        # func modifyParam() int { return 100 }
+        #
         - SA4009
 
         # The result of 'append' will never be observed anywhere.
