@@ -402,7 +402,11 @@ linters:
     # func NewService() Service {return &MyServiceImpl{}} // сообщит об ошибке из-за возврата интерфейса
     # func NewService() *MyServiceImpl {return &MyServiceImpl{}} // OK
     # Настраивается
-    - ireturn
+    #
+    # Бывает напряжно
+    #
+    # Выключаем
+    # - ireturn
 
     # https://golangci-lint.run/docs/linters/configuration/#lll
     # https://github.com/walle/lll // на самом сайте не указан
@@ -716,12 +720,118 @@ linters:
     # Позволяет писать кастомные правила
     - revive
 
+    # https://golangci-lint.run/docs/linters/configuration/#rowserrcheck
+    # https://github.com/jingyugao/rowserrcheck
+    #
+    # Обязывает вас проверять sql.Rows.Err() после сканирования
+    #
+    # До
+    # ctx := context.Background()
+    #
+    # db := new(sql.DB)
+    #
+    # rows, err := db.QueryContext(ctx, "SELECT * FROM animals")
+    # if err != nil {
+    # 	panic(err)
+    # }
+    #
+    # _ = rows
+    #
+    #
+    # После
+    # ctx := context.Background()
+    #
+    # db := new(sql.DB)
+    #
+    # rows, err := db.QueryContext(ctx, "SELECT * FROM animals")
+    # if err != nil {
+    # 	panic(err)
+    # }
+    #
+    # if rows.Err() != nil {
+    # 	panic(rows.Err())
+    # }
+    #
+    # Позволяет настроить список пакетов который необходимо проверять
+    #
+    # Есть ньанс с тем что если пакет не импортирован то его тип Rows не будет проверен
+    #
+    # Такое можно воспроизвести с помощью sqlx.QueryContext который возвращает database/sql.Rows
+    # при этом сам database/sql не импортируется
+    #
+    # Создал ISSUE https://github.com/jingyugao/rowserrcheck/issues/33
     - rowserrcheck
 
+    # https://golangci-lint.run/docs/linters/configuration/#sloglint
+    # https://github.com/go-simpler/sloglint
+    #
+    # Является конфигурируемой настройкой для использования slog.Logger
     - sloglint
 
+    # https://golangci-lint.run/docs/linters/configuration/#spancheck
+    # https://github.com/jjti/go-spancheck
+    #
+    # Добавляет ряд правил при работе со спанами
+    #
+    # Проверяет спаны из следующих пакетов:
+    # go.opentelemetry.io/otel/trace
+    # go.opencensus.io/trace
     - spancheck
 
+    # https://golangci-lint.run/docs/linters/configuration/#sqlclosecheck
+    # https://github.com/ryanrolds/sqlclosecheck
+    #
+    # Проверяет начилие вызова Close() для sql.Rows, sql.Stmt, sqlx.NamedStmt, pgx.Query
+    #
+    # До
+    # ctx := context.Background()
+    #
+    # db := new(sql.DB)
+    #
+    # rows, err := db.QueryContext(ctx, "SELECT * FROM animals")
+    # if err != nil {
+    # 	panic(err)
+    # }
+    #
+    # // отсутствует вызов rows.Close()
+    #
+    # if rows.Err() != nil {
+    # 	panic(rows.Err())
+    # }
+    #
+    # После
+    #
+    # ctx := context.Background()
+    #
+    # db := new(sql.DB)
+    #
+    # rows, err := db.QueryContext(ctx, "SELECT * FROM animals")
+    # if err != nil {
+    # 	panic(err)
+    # }
+    #
+    # defer func() { _ = rows.Close() }() // присутствует вызов rows.Close
+    #
+    # if rows.Err() != nil {
+    # 	panic(rows.Err())
+    # }
+    #
+    # По аналогии с rowserrcheck не распространяется на случаи когда sql.Rows была получена через sqlx
+    #
+    # ctx := context.Background()
+    #
+    # db := new(sqlx.DB)
+    #
+    # rows, err := db.QueryContext(ctx, "SELECT * FROM animals")
+    # if err != nil {
+    # 	panic(err)
+    # }
+    #
+    # // вызов rows.Close отсутствует, однако никакого предпреждения линтер не выдаст
+    #
+    # for rows.Next() {
+    # 	_ = rows.Scan()
+    # }
     - sqlclosecheck
 
     - staticcheck
@@ -2578,6 +2688,12 @@ linters:
 
         # func NewReader() io.Reader         { return nil }
         - stdlib
+
+        # все интерфейсы которые заканчиваются на Service допустимы
+        - Service$
+
+        # Допустимо возвращать спаны
+        - Span$
 
         # You can specify idiomatic endings for interface
         # - (or|er)$
@@ -5203,21 +5319,417 @@ linters:
           disabled: true
           exclude: [""]
 
-    spancheck:
-      checks:
-        # Проверяет вызов .End()
-        - end
-
-        # Проверяет запись ошибки в спан если ошибка всё таки возвращается
-        - record-error
-
-        # Проверяет постановку статуса в span
-        - set-status
-
     rowserrcheck:
       # Дополнительно проверяем и sqlx
       packages:
-        - github.com/jmoiron/sqlx
+        - "github.com/jmoiron/sqlx"
+
+    sloglint:
+      # Enforce not mixing key-value pairs and attributes.
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#no-mixed-arguments
+      # До
+      # log.InfoContext(ctx, "my message",
+      # 	"key", 100,           // здесь замикшированны ключ-значение с slog.Attr
+      # 	slog.Int("num", 100),
+      # )
+      #
+      # После
+      # log.InfoContext(ctx, "my message",
+      # 	"key", 100,
+      # 	"num", 100,
+      # )
+      # или
+      # log.InfoContext(ctx, "my message",
+      # 	slog.Int("key", 100),
+      # 	slog.Int("num", 100),
+      # )
+      #
+      # Default: true
+      no-mixed-args: true
+
+      # Enforce using key-value pairs only (overrides no-mixed-args, incompatible with attr-only).
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#key-value-pairs-only
+      #
+      # Обязывает использовать только key value паттерн при логировании
+      # Перекрывает no-mixed-args
+      #
+      # из примеров выше будет доступен только вариант где все параметры
+      # прописаны в стиле ключ-значение
+      #
+      # log.InfoContext(ctx, "my message",
+      # 	"key", 100,
+      # 	"num", 100,
+      # )
+      #
+      # Не может быть включена вместе с attr-only
+      #
+      # Default: false
+      kv-only: false
+
+      # Enforce using attributes only (overrides no-mixed-args, incompatible with kv-only).
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#attributes-only
+      #
+      # Обязывает использовать только slog.Attr при логировании
+      # Перекрывает no-mixed-args
+      #
+      # из примером выше будет доступен только вариант где все параметры
+      # прописаны в стиле slog.Attr
+      #
+      # log.InfoContext(ctx, "my message",
+      # 	slog.Int("key", 100),
+      # 	slog.Int("num", 100),
+      # )
+      #
+      # Не может быть включена вместе с kv-only
+      #
+      # Default: false
+      attr-only: false
+
+      # Enforce not using global loggers.
+      # Values:
+      # - "": disabled
+      # - "all": report all global loggers
+      # - "default": report only the default slog logger
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#no-global
+      #
+      # Запрещает использовать глобальные slog.Logger
+      #
+      # Пример использование глобального логгера
+      #
+      # slog.InfoContext(ctx, "my message",
+      # 	slog.Int("key", 100),
+      # 	slog.Int("num", 100),
+      # )
+      #
+      # Default: ""
+      no-global: "all"
+
+      # Enforce using methods that accept a context.
+      # Values:
+      # - "": disabled
+      # - "all": report all contextless calls
+      # - "scope": report only if a context exists in the scope of the outermost function
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#context-only
+      # Default: ""
+      #
+      # Обязывает использовать только те методы логгера
+      # которые принимают в себя context.Context
+      # До
+      # slog.Info(ctx, "my message",
+      # 	slog.Int("key", 100),
+      # 	slog.Int("num", 100),
+      # )
+      #
+      # После
+      # slog.InfoContext(ctx, "my message",
+      # 	slog.Int("key", 100),
+      # 	slog.Int("num", 100),
+      # )
+      context: "all"
+
+      # Enforce using static values for log messages.
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#static-messages
+      #
+      # Обязывает использовать в качесте msg аргумента статичную строку
+      #
+      # Позволяет использовать константы (const myMessage)
+      #
+      # До
+      # myMessage := "my message"
+      #
+      # log.InfoContext(ctx, myMessage,
+      # 	slog.Int("key", 0),
+      # 	slog.Int("num", 1),
+      # )
+      #
+      # После
+      # const myMessage = "my message"
+      #
+      # log.InfoContext(ctx, myMessage,
+      # 	slog.Int("key", 0),
+      # 	slog.Int("num", 1),
+      # )
+      # или
+      # log.InfoContext(ctx, "my message",
+      # 	slog.Int("key", 0),
+      # 	slog.Int("num", 1),
+      # )
+      #
+      # Default: false
+      static-msg: true
+
+      # Enforce message style.
+      # Values: lowercased, capitalized
+      #
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#message-style
+      #
+      # Указывает формат сообщения (строчные или заглавные буквы)
+      #
+      # log.InfoContext(ctx, "My message",
+      # 	slog.Int("key", 0),
+      # 	slog.Int("num", 1),
+      # )
+      #
+      # Default: ""
+      msg-style: lowercased
+
+      # Enforce using constants instead of raw keys.
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#no-raw-keys
+      #
+      # Запрещает к использованию ключи которые не являются константами
+      #
+      # До
+      # log.InfoContext(ctx, "my message",
+      # 	slog.Int("key", 0), // необходимо создать константу со значением "key"
+      # 	slog.Int("num", 1), // необходимо создать константу со значением "num"
+      # )
+      #
+      # log.InfoContext(ctx, "my message",
+      # 	"key", 0, // необходимо создать константу со значением "key"
+      # 	"num", 1, // необходимо создать константу со значением "num"
+      # )
+      #
+      # После
+      # const (
+      # 	key = "key"
+      # 	num = "num"
+      # )
+      #
+      # log.InfoContext(ctx, "my message",
+      # 	key, 0,
+      # 	num, 1,
+      # )
+      #
+      #
+      # log.InfoContext(ctx, "my message",
+      # 	slog.Int(key, 0),
+      # 	slog.Int(num, 1),
+      # )
+      #
+      # Default: false
+      #
+      # Оставлю false с тем условием
+      # что правило revive.add-constant укажет на использование одного и того же ключа более 1 раза
+      no-raw-keys: false
+
+      # Enforce key naming convention.
+      # Values: snake, kebab, camel, pascal
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#key-naming-convention
+      #
+      # Регламентирует стиль написания ключей
+      #
+      # До
+      # const key = "myKey" // ключ написан в camelCase, а требуется snake_case
+      #
+      # После
+      # const key = "my_key" // Порядок, стиль написания ключа соответствует выбранному
+      #
+      # log.InfoContext(ctx, "my message",
+      # 	slog.Int(key, 0),
+      # )
+      #
+      # Default: ""
+      key-naming-case: snake
+
+      # Enforce not using specific keys.
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#forbidden-keys
+      #
+      # Позволяет настроить перечень ключей запрещённых к использованию
+      #
+      # const key = "time" // ключ time запрещен к использованию
+      #
+      # log.InfoContext(ctx, "my message",
+      # 	slog.Int(key, 0),
+      # )
+      #
+      # log.InfoContext(ctx, "my message",
+      # 	key, 0,
+      # )
+      #
+      #
+      # Default: []
+      #
+      # Указанные здесь ключи запрещены по причине их наличия в логах по умолчанию
+      forbidden-keys:
+        - time
+        - level
+        - msg
+        - source
+
+      # Enforce putting arguments on separate lines.
+      # https://github.com/go-simpler/sloglint?tab=readme-ov-file#arguments-on-separate-lines
+      #
+      # Каджый следующий аргумент должен идти на следующей сточке
+      #
+      # До
+      # log.InfoContext(ctx, "my message", slog.Int("count", 1), slog.Int("num", 1))
+      # После
+      # log.InfoContext(ctx, "my message",
+      # 	slog.Int("count", 1),
+      # 	slog.Int("num", 1),
+      # )
+      #
+      # Default: false
+      args-on-sep-lines: true
+
+    spancheck:
+      # Checks to enable.
+      # Options include:
+      # - `end`: check that `span.End()` is called
+      # - `record-error`: check that `span.RecordError(err)` is called when an error is returned
+      # - `set-status`: check that `span.SetStatus(codes.Error, msg)` is called when an error is returned
+      # Default: ["end"]
+      checks:
+        # Проверяет вызов span.End
+        #
+        # До
+        # ctx := context.Background()
+        #
+        # tracer := otel.Tracer("service")
+        #
+        # ctx, span := tracer.Start(ctx, "op")
+        # // вызов span.End отсутсвует
+        # _ = ctx
+        # _ = span
+        #
+        # После
+        # ctx := context.Background()
+        #
+        # tracer := otel.Tracer("service")
+        #
+        # ctx, span := tracer.Start(ctx, "op")
+        # defer span.End() // вызов span.End в defer
+        #
+        # _ = ctx
+        - end
+
+        # следующие два линтера будут рассмотрены вместе
+        #
+        # record-error - проверяет вызов span.RecordError(err) в случае ошибки
+        # set-status   - проверяет вызов span.SetStatus(codes.Error, "error message") в случае ошибки
+        #
+        #
+        # До
+        # ctx := context.Background()
+        #
+        # tracer := otel.Tracer("service")
+        #
+        # ctx, span := tracer.Start(ctx, "op")
+        # defer span.End()
+        #
+        # _, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://github.com", http.NoBody)
+        # if err != nil {
+        #   // в данном блоке при обработке ненулевой ошибки
+        #   // мы должны были вызвать
+        #   // 1. если включена опция record-error - span.RecordError(err)
+        #   // 2. если включана опция set-status   - span.SetStatus(codes.Error, err.Error())
+        # 	return fmt.Errorf("http.NewRequestWithContext: %w", err)
+        # }
+        #
+        # return nil
+        #
+        # После
+        # ctx := context.Background()
+        #
+        # tracer := otel.Tracer("service")
+        #
+        # ctx, span := tracer.Start(ctx, "op")
+        # defer span.End()
+        #
+        # _, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://github.com", http.NoBody)
+        # if err != nil {
+        # 	span.RecordError(err)
+        # 	span.SetStatus(codes.Error, err.Error())
+        #
+        # 	return fmt.Errorf("http.NewRequestWithContext: %w", err)
+        # }
+        #
+        # return nil
+        - record-error
+        - set-status
+
+      # A list of regexes for function signatures that silence `record-error` and `set-status` reports
+      # if found in the call path to a returned error.
+      # https://github.com/jjti/go-spancheck#ignore-check-signatures
+      #
+      # Предположим у нас есть функция-помощник annotateError
+      #
+      # func annotateError(span trace.Span, err error) {
+      # 	span.RecordError(err)
+      # 	span.SetStatus(codes.Error, err.Error())
+      # }
+      #
+      # И мы хотим использовать её для того чтобы помечать ошибку на наших спанах
+      # Однако линтер не знает про эту замечательную фукнцию
+      # и пишет нам что бы забыли вызвать RecordError и SetStatus на нашем спане
+      # данная настрока призвана решить нашу проблему
+      #
+      # если мы укажем нашу функцию annotateError в списке то следующий код будет проходить
+      # без лишних замечаний:
+      #
+      # ctx := context.Background()
+      #
+      # tracer := otel.Tracer("service")
+      #
+      # ctx, span := tracer.Start(ctx, "op")
+      # defer span.End()
+      #
+      # _, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://github.com", http.NoBody)
+      # if err != nil {
+      # 	annotateError(span, err)
+      #
+      # 	return fmt.Errorf("http.NewRequestWithContext: %w", err)
+      # }
+      #
+      # return nil
+      #
+      # Default: []
+      ignore-check-signatures:
+        - annotateError
+        # - "telemetry.RecordError"
+
+      # A list of regexes for additional function signatures that create spans.
+      # This is useful if you have a utility method to create spans.
+      # Each entry should be of the form `<regex>:<telemetry-type>`, where `telemetry-type` can be `opentelemetry` or `opencensus`.
+      # https://github.com/jjti/go-spancheck#extra-start-span-signatures
+      #
+      # По умолчанию есть три функции создающих спаны
+      # Спаны возвращаемые этими функциями будут проверены всегда
+      #
+      # - go.opentelemetry.io/otel/trace.Tracer.Start:opentelemetry
+      # - go.opencensus.io/trace.StartSpan:opencensus
+      # - go.opencensus.io/trace.StartSpanWithRemoteParent:opencensus
+      #
+      # Данная настрока позволяет добавить собственные функции
+      #
+      # 1. В этих функциях не будут проверяться правила end, set-status, record-error
+      #    по причине того что они возвращают спан
+      #
+      # 2. Спаны возвращаемые ими в месте использования будут подвергнуты проверке на соблюдение
+      #    указанных правил
+      #
+      # ctx := context.Background()
+      #
+      # ctx, span := observability.StartSpan(ctx, "op") // кастомный стартер
+      #
+      # // если этот стартер не будет добавлен в настроки то линтер не сообщит об
+      # // отсутствии span.End, span.SetStatus и span.RecordError
+      # // также непосредственно в самой функции которая возвращает спан
+      # // будет issue связанное с отсутствием span.End
+      #
+      # _, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://github.com", http.NoBody)
+      # if err != nil {
+      # 	return fmt.Errorf("http.NewRequestWithContext: %w", err)
+      # }
+      #
+      # _ = span
+      #
+      # return nil
+
+      # Default: []
+      extra-start-span-signatures: []
+        # - "github.com/amidgo/linter/observability.StartSpan:opentelemetry"
+        # - "github.com/user/repo/telemetry/trace.Start:opentelemetry"
 
     varnamelen:
       # Описывает названия переменных с их типами которые мы предпочли бы игнорировать
