@@ -1,5 +1,3 @@
-package linter
+package main
 
-type Receiver struct{}
-
-func (receiver Receiver) Hello() { _ = receiver }
+func main() {}

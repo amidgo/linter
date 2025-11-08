@@ -435,7 +435,6 @@ linters:
     #
     # Было принято решение что для оценки сложности используем gocognit
     #
-    #
     # Выключаем
     # - maintidx
 
@@ -727,7 +726,17 @@ linters:
 
     - staticcheck
 
-    - tagalign
+    # https://golangci-lint.run/docs/linters/configuration/#tagalign
+    # https://github.com/4meepo/tagalign
+    #
+    # Проверяет теги, имеет гибкую настройку
+    #
+    # revive.struct-tag выполняет ту же самую фукнцию
+    #
+    # Однако проверяет правила публичных полей
+    #
+    # Выключаем
+    # - tagalign
 
     - testifylint
 
@@ -2133,9 +2142,13 @@ linters:
 
         # Check //go:build and // +build directives.
         # Проверяет правила build tags (go:build linux)
-        # Не смог воспроизвести внятного примера
-        # go fmt автоматически переводит на новый стиль и исправляет ошибки
-        # тем не менее оставим, пусть будет
+        # Сообщает о случаях если комментарий // +build идёт раньше //go:build
+        #
+        # Интересно получается воспроизвести при запуске
+        # golangci-lint run ./main.go
+        #
+        # При запуске golangci-lint run сообщений нет
+        #
         - buildtag
 
         # Detect some violations of the cgo pointer passing rules.
@@ -4657,88 +4670,255 @@ linters:
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redundant-build-tag
+        #
+        # Сообщает о случаях если комментарий // +build идёт раньше //go:build
+        #
+        # govet.buildtag выполняют ту же самую фукнцию
+        #
+        # Интересно получается воспроизвести при запуске
+        # golangci-lint run ./main.go
+        #
+        # При запуске golangci-lint run сообщений нет
+        #
+        # Выключаем
         - name: redundant-build-tag
-          disabled: false
+          disabled: true
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redundant-import-alias
+        #
+        # Сообщает о случаях когда alias пакета полностью совпадает с его именем
+        #
+        # import fmt "fmt"
+        #
         - name: redundant-import-alias
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#redundant-test-main-exit
+        #
+        # До go 1.15 требовалось явно вызывать os.Exit в функции TestMain по завершению тестов
+        #
+        # Сейчас же этого не требуется
+        #
+        # До
+        # func TestMain(m *testing.M) {
+        # 	result := m.Run()
+        # 	os.Exit(result) // ← избыточно в Go 1.15+
+        # }
+        #
+        # После
+        # func TestMain(m *testing.M) {
+        # 	m.Run()
+        # }
         - name: redundant-test-main-exit
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#string-format
+        #
+        # Полноценный инструмент позволяющий настраивать compilation-time проверки
+        # статичных строк для отдельных полей и функций
+        #
+        #
         - name: string-format
           disabled: false
           exclude: [""]
-          arguments:
-            - - "core.WriteError[1].Message"
-              - "/^([^A-Z]|$)/"
-              - must not start with a capital letter
-            - - "fmt.Errorf[0]"
-              - '/(^|[^\.!?])$/'
-              - must not end in punctuation
-            - - panic
-              - '/^[^\n]*$/'
-              - must not contain line breaks
+          arguments: []
+
+            # Рассмотрим правило ниже
+            #
+            # [
+            #   [
+            #     "NewUserInfo[0]",
+            #     "/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$/",
+            #     "invalid user email",
+            #   ],
+            # ]
+            #
+            # Оно означает следующее
+            #
+            # Первый аргумент функции NewUserInfo должен соответствовать определённому regexp
+            #
+            # _ = NewUserInfo("invalid email") // данный код вызовет ошибку
+            #	_ = NewUserInfo("mcdvaran@gmail.com") // всё хорошо, строка прошла проверку
+            #
+            # # - - "core.WriteError[1].Message"
+            #   - "/^([^A-Z]|$)/"
+            #   - must not start with a capital letter
+            # - - "fmt.Errorf[0]"
+            #   - '/(^|[^\.!?])$/'
+            #   - must not end in punctuation
+            # - - panic
+            #   - '/^[^\n]*$/'
+            #   - must not contain line breaks
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#string-of-int
+        #
+        # Запрещает конвертировать числа до строки напрямую
+        #
+        # _ = string(10) // неверно
+        # _ = strconv.Itoa(10) // верно
+        #
+        # govet.stringintconv выполняет ту же самую функцию
+        #
+        # Выключаем
         - name: string-of-int
-          disabled: false
+          disabled: true
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#struct-tag
+        # Сообщает об ошибках связанных с тегированием полей функции
+        #
+        # Проверяет большинство популярных тегов (bson, yaml, toml, validate и тд)
+        #
+        # type User struct {
+        # 	Name string `json:name`
+        # 	age  string `json:"age"`
+        # }
         - name: struct-tag
           disabled: false
           exclude: [""]
-          arguments:
-            - "json,inline"
-            - "bson,outline,gnu"
+          arguments: []
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#superfluous-else
+        #
+        # Сообщает об "излишних" блоках else
+        #
+        # items := []int{}
+        #
+        # // ❌ До
+        # for i := range items {
+        # 	if i == 0 {
+        # 		break
+        # 	} else {
+        # 		process(items[i])
+        # 	}
+        # }
+        #
+        # // ✅ После
+        # for i := range items {
+        # 	if i == 0 {
+        # 		break
+        # 	}
+        #
+        # 	process(items[i])
+        # }
+        #
+        #
+        # preserve-scope
+        # Данная опция будет исключать случаи где исправление может привести
+        # к увеличению количества переменных в зоне видимости
+        #
+        # func fn3() {
+        # 	for {
+        # 		// Don't want to move the declaration of x here since it stays in scope afterward
+        # 		if x := fn1(); x != nil {
+        # 			continue
+        # 		} else {
+        # 			fn1()
+        # 		}
+        #
+        # 		x := fn1()
+        # 		_ = x
+        # 	}
+        # }
+        #
+        # func fn1() any { return nil }
         - name: superfluous-else
           disabled: false
           exclude: [""]
-          arguments:
-            - "preserve-scope"
+          arguments: [preserve-scope]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#time-date
+        #
+        # Проверяет аргументы функции time.Date
+        #
+        # например час не может быть больше 23
+        #
+        # time.Date hour argument should be between 0 and 23: 30
+        #	_ = time.Date(year, month, day, 30, minute, second, 0, time.UTC)
         - name: time-date
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#time-equal
+        #
+        # Обязывает сравнивать time.Time с помощью метода time.Time.Equal
+        #
+        # До
+        #	_ = time.Now() == time.Now()
+        # После
+        # _ = time.Now().Equal(time.Now())
+        #
         - name: time-equal
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#time-naming
+        #
+        # В именах переменных типа time.Duration не следует использовать суффиксы
+        # обозначающие период времени
+        #
+        # const sixMin = 6 * time.Minute
+        #
+        #
         - name: time-naming
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unchecked-type-assertion
+        #
+        # Запрещает использование непроверенных type assertion
+        #
+        # i := any(nil).(int) // НЕВЕРНО
+        # i, ok := any(nil).(int) // ВЕРНО
+        #
+        # accept-ignored-assertion-result: false - запрещает игнорировать (опускать) значения bool при проверке
+        #
+        # i, _ = any(nil).(int) // НЕВЕРНО ok (bool) значение опущено
         - name: unchecked-type-assertion
           disabled: false
           exclude: [""]
           arguments:
-            - accept-ignored-assertion-result: true
+            - accept-ignored-assertion-result: false
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unconditional-recursion
+        #
+        # Обнаруживает бесконечную рекурсию
+        #
+        # func infinity() {
+        # 	infinity()
+        # }
         - name: unconditional-recursion
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unexported-naming
+        #
+        # Неэкспортируемые символы должны начинаться с буквы нижнего регистра
+        #
+        # func unexportedNaming() {
+        # 	const Unexported = 0 // НЕВЕРНО // должно начинаться с маленькой буквы
+        # }
+        #
+        # func unexportedNaming() {
+        # 	const unexported = 0 // ПОРЯДОК
+        # }
+        #
         - name: unexported-naming
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unexported-return
+        #
+        # Сообщает о публичных функциях которые возвращают неэкспортируемые символы
+        #
+        # type unexported struct{} // не экспортируется
+        #
+        # func UnexportedNaming() unexported { // возвращаем неэскортируемый тип
+        # 	return unexported{}
+        # }
         - name: unexported-return
           disabled: false
           exclude: [""]
@@ -4758,26 +4938,84 @@ linters:
             - "myFunction"
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unnecessary-format
+        #
+        # Сообщает о вызове функций-форматтеров где не используется форматирование
+        # Предлагает заменить такие функции на аналог без форматирования
+        #
+        #	log.Printf("Hello World\n")
         - name: unnecessary-format
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unnecessary-stmt
+        #
+        # Сообщает о break в конце switch case который вполне можно опустить
+        # Сообщает о return в конце функции который вполне можено опустить
+        #
+        # func bar() {
+        # 	switch {
+        # 	case 10%2 == 0:
+        # 		log.Println("YES YES YES")
+        #
+        # 		break // можно опустить
+        # 	case 15%5 == 0:
+        # 		log.Println("NO NO NO")
+        #
+        # 		break // можно опустить
+        # 	default:
+        # 	}
+        #
+        # 	return // можно опустить
+        # }
+        #
         - name: unnecessary-stmt
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unreachable-code
+        #
+        # Сообщает о коде до которого не может дойти выполнение
+        #
+        # func foo() int {
+        # 	log.Println("About to fail")
+        #
+        # 	return 0 // MATCH /unreachable code after this statement/
+        # 	return 1 // недостижимый код
+        # }
+        #
+        #
+        # govet.unreachable выполняет ту же самую функцию
+        #
+        # Выключаем
         - name: unreachable-code
-          disabled: false
+          disabled: true
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unsecure-url-scheme
+        #
+        # Сообщает об использовании небезопасных url схем (http, ws)
+        #
+        # req, err := http.NewRequestWithContext(
+        # 	ctx,
+        # 	http.MethodGet,
+        # 	"http://github.com/amidgo", // использование http небезопасно
+        # 	http.NoBody,
+        # )
+        # if err != nil {
+        # 	panic(err)
+        # }
         - name: unsecure-url-scheme
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unused-parameter
+        #
+        # Сообщает о неиспользуемых параметрах
+        #
+        # func unusedParam(param any) {} // параметр param не используется
+        # func unusedParam(any) {} // название неиспользуемого параметра опущено, ДОПУСТИМО
+        # func unusedParam(_ any) {} // названием неиспользуемого параметра является _, ДОПУСТИМО
+        #
         - name: unused-parameter
           disabled: false
           exclude: [""]
@@ -4785,27 +5023,60 @@ linters:
             - allow-regex: "^_"
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#unused-receiver
+        #
+        # Сообщает об неиспользумой структуре в методах расширениях
+        #
+        # type Receiver struct{ value int }
+        #
+        # func (r Receiver) Hello() {} // не используется, линтер сообщит о ПРОБЛЕМЕ
+        # func (Receiver) Hello() {} // навзание опущено, ДОПУСТИМО
+        #
+        # Замена на _ здесь не допускается
+        # по причине конфликта с staticcheck.ST1006
+        #
         - name: unused-receiver
           disabled: false
           exclude: [""]
-          arguments:
-            - allow-regex: "^_"
+          arguments: []
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-any
+        #
+        # Предлагает заменить interface{} на any
+        #
         # modernize.any выполняет ту же самую фукнцию
+        #
         # Выключаем
         - name: use-any
           disabled: true
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-errors-new
+        #
+        # Предлагает заменить fmt.Errorf("error text") на errros.New("error text")
+        #
+        # Выглядит как частный случай revive.unnecessary-format
+        #
+        # revive.unnecessary-format выполняет ту же самую функцию
+        # Однако его функционал гораздо шире
+        #
+        # Выключаем
         - name: use-errors-new
-          disabled: false
+          disabled: true
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-fmt-print
+        #
+        # Запрещает использовать println и print
+        # по причине что авторы языка не гарантируют их наличие в последующих версиях языка
+        #
+        # С подобным запретом прекрасно справляется forbidigo
+        #
+        # forbidigo выполняет ту же самую функцию
+        # Однако его функционал гораздо шире
+        #
+        # Выключаем
         - name: use-fmt-print
-          disabled: false
+          disabled: true
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#use-waitgroup-go
@@ -4817,37 +5088,119 @@ linters:
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#useless-break
+        #
+        # Сообщает о бесполезных break
+        #
+        # ctx := context.Background()
+        #
+        # select {
+        # case <-ctx.Done():
+        # 	break
+        # default:
+        # }
+        #
+        # В отличие от похожих линтеров
+        # revive.unnecessary-stmt
+        # staticcheck.S1023
+        #
+        # Проверяет select
+        #
+        # По этой причине я его оставил, не смотря на дубли
+        #
         - name: useless-break
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#useless-fallthrough
+        #
+        # Сообщает о switch case использующим fallthrough который можно сократить
+        #
+        # До
+        # func uselessFallthrough(category string) bool {
+        # 	switch category {
+        # 	case "Lu":
+        # 		fallthrough
+        # 	case "Ll":
+        # 		fallthrough
+        # 	case "Lt":
+        # 		fallthrough
+        # 	case "Lm":
+        # 		fallthrough
+        # 	case "Lo":
+        # 		return true
+        # 	default:
+        # 		return false
+        # 	}
+        # }
+        #
+        # После
+        # func uselessFallthrough(category string) bool {
+        # 	switch category {
+        # 	case "Lu", "Ll", "Lt", "Lm", "Lo":
+        # 		return true
+        # 	default:
+        # 		return false
+        # 	}
+        # }
         - name: useless-fallthrough
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#var-declaration
+        #
+        # Предлагает опускать названия типов при создании переменной через var
+        # var data []byte = []byte{} // НЕВЕРНО
+        # var data = []byte{} // ВЕРНО
+        #
         - name: var-declaration
           disabled: false
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#var-naming
+        #
+        #
+        # Устанавливает ряд правил для именования пакетов, переменных, типов, методов и функций
+        #
+        # staticcheck.ST1003 выполняет ту же самую функцию из коробки
+        # без необходимости настроки (кроме initializm что явно плюс)
+        #
+        # Выключаем
         - name: var-naming
-          disabled: false
+          disabled: true
           exclude: [""]
           arguments:
-            - ["ID"] # AllowList
-            - ["VM"] # DenyList
+            - [] # AllowList
+            - [] # DenyList
+
+
+              # type marshalerJson struct{} НЕВЕРНО
+              # type marshalerJSON struct{} ВЕРНО
+              # staticcheck.ST1003 выполняет ту же самую функцию
+              # Выключаем проверку аббревиатур в данном линтере
             - - skip-initialism-name-checks: true
-                upper-case-const: true
+
+                # если опция включена правило будет допускать подобный синтаксис
+                # const UPPER_CASE = true
+                upper-case-const: false
+
+                # валидация имен пакетов
+                # имена пакетов должны содержать только латинские буквы нижнего регистра
+                # package Main
+                #
+                # Позволяет выключить настроку
                 skip-package-name-checks: true
-                extra-bad-package-names:
-                  - helpers
-                  - models
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#waitgroup-by-value
+        #
+        # Запрещает передавать sync.WaitGroup по значению а не по ссылке
+        #
+        # func add(wg sync.WaitGroup) { wg.Add(1) }
+        #
+        # govet.copylocks выполняет ту же самую функцию
+        #
+        # Выключаем
         - name: waitgroup-by-value
-          disabled: false
+          disabled: true
           exclude: [""]
 
     spancheck:
@@ -5326,7 +5679,17 @@ linters:
 
         # Infinite recursive call.
         # https://staticcheck.dev/docs/checks/#SA5007
-        - SA5007
+        #
+        # Обнаруживает бесконечную рекурсию
+        #
+        # func infinity() {
+        # 	infinity()
+        # }
+        #
+        # revive.unconditional-recursion выполняет ту же самую функцию
+        #
+        # Выключаем
+        # - SA5007
 
         # Invalid struct tag.
         # https://staticcheck.dev/docs/checks/#SA5008
@@ -5500,7 +5863,15 @@ linters:
 
         # Redundant type in variable declaration.
         # https://staticcheck.dev/docs/checks/#ST1023
-        - ST1023
+        #
+        # Предлагает опускать названия типов при создании переменной через var
+        # var data []byte = []byte{} // НЕВЕРНО
+        # var data = []byte{} // ВЕРНО
+        #
+        # revive.var-declaration выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - ST1023
 
         # Use plain channel send or receive instead of single-case select.
         # https://staticcheck.dev/docs/checks/#S1000
@@ -5580,7 +5951,30 @@ linters:
 
         # Omit redundant control flow.
         # https://staticcheck.dev/docs/checks/#S1023
-        - S1023
+        #
+        # Сообщает о break в конце switch case который вполне можно опустить
+        # Сообщает о return в конце функции который вполне можено опустить
+        #
+        # func bar() {
+        # 	switch {
+        # 	case 10%2 == 0:
+        # 		log.Println("YES YES YES")
+        #
+        # 		break // можно опустить
+        # 	case 15%5 == 0:
+        # 		log.Println("NO NO NO")
+        #
+        # 		break // можно опустить
+        # 	default:
+        # 	}
+        #
+        # 	return // можно опустить
+        # }
+        #
+        # revive.unnecessary-stmt выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - S1023
 
         # Replace 'x.Sub(time.Now())' with 'time.Until(x)'.
         # https://staticcheck.dev/docs/checks/#S1024
@@ -5673,30 +6067,58 @@ linters:
         # Convert if/else-if chain to tagged switch.
         # https://staticcheck.dev/docs/checks/#QF1003
         - QF1003
+
         # Use 'strings.ReplaceAll' instead of 'strings.Replace' with 'n == -1'.
         # https://staticcheck.dev/docs/checks/#QF1004
         - QF1004
+
         # Expand call to 'math.Pow'.
         # https://staticcheck.dev/docs/checks/#QF1005
         - QF1005
+
         # Lift 'if'+'break' into loop condition.
         # https://staticcheck.dev/docs/checks/#QF1006
         - QF1006
+
         # Merge conditional assignment into variable declaration.
         # https://staticcheck.dev/docs/checks/#QF1007
         - QF1007
+
         # Omit embedded fields from selector expression.
         # https://staticcheck.dev/docs/checks/#QF1008
         - QF1008
+
         # Use 'time.Time.Equal' instead of '==' operator.
         # https://staticcheck.dev/docs/checks/#QF1009
-        - QF1009
+        #
+        # Обязывает сравнивать time.Time с помощью метода time.Time.Equal
+        #
+        # До
+        #	_ = time.Now() == time.Now()
+        # После
+        # _ = time.Now().Equal(time.Now())
+        #
+        # revive.time-equal выполняет ту же функцию
+        #
+        # Выключаем
+        # - QF1009
+
         # Convert slice of bytes to string when printing it.
         # https://staticcheck.dev/docs/checks/#QF1010
         - QF1010
+
         # Omit redundant type from variable declaration.
         # https://staticcheck.dev/docs/checks/#QF1011
-        - QF1011
+        #
+        # Предлагает опускать названия типов при создании переменной через var
+        # var data []byte = []byte{} // НЕВЕРНО
+        # var data = []byte{} // ВЕРНО
+        #
+        # revive.var-declaration выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - QF1011
+
         # Use 'fmt.Fprintf(x, ...)' instead of 'x.Write(fmt.Sprintf(...))'.
         # https://staticcheck.dev/docs/checks/#QF1012
         - QF1012
