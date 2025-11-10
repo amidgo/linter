@@ -834,6 +834,8 @@ linters:
     # }
     - sqlclosecheck
 
+    # https://golangci-lint.run/docs/linters/configuration/#staticcheck
+    # https://github.com/dominikh/go-tools
     - staticcheck
 
     # https://golangci-lint.run/docs/linters/configuration/#tagalign
@@ -966,6 +968,9 @@ linters:
 
         - pattern: uuid.Nil
           msg: "prefer use uuid.UUID{} as zero value, because uuid.Nil is global variable and can be reassigned"
+
+        - pattern: runtime.SetFinalizer
+          msg: use runtime.AddCleaup modern and safer implementation
 
     funlen:
       # Считает только тело функции
@@ -1639,7 +1644,12 @@ linters:
         # len(arr) <= 0
         # После
         # len(arr) == 0
-        - sloppyLen
+        #
+        # staticcheck.SA4024 выполняет ту же самую фукнцию
+        # Однако работает на cap
+        #
+        # Выключаем
+        # - sloppyLen
 
         # https://go-critic.com/overview.html#sloppyreassign
         # Обнаруживает неуместные, подозрительные, странные переназначения переменных
@@ -2240,6 +2250,7 @@ linters:
 
         # Check for non-64-bits-aligned arguments to sync/atomic functions.
         # Если вы работаете на 64 битной архитектуре линтер не будет работать
+        #
         # В интернет ресурсах удалось найти примеры где на невыравненных структурах
         # при использовании atomic.AddInt32(ptr, value) могли возникать проблемы
         # Выключаем
@@ -2457,6 +2468,7 @@ linters:
         #   case signalCh <- signal:
         #   default: // в случае если канал будет не буферизированный сигнал не будет отправлен
         # }
+        #
         # staticcheck.SA1017 выполняет ту же самую функцию
         - sigchanyzer
 
@@ -2548,14 +2560,19 @@ linters:
         - unsafeptr
 
         # Check for unused results of calls to some functions.
+        #
         # Сообщает об неиспользуемом результате ряда функций стандартной библиотеки
         # вызов таких функций не приводит к изменениям и их вызов может быть убран
         # в случае если значение не используется
+        #
         # fmt.Sprint(1) // значение не используется
         # _ = fmt.Sprint(1) // OK, мы присваиваем значение (используем)
+        #
         # staticcheck.SA4017 выполняет ту же фукцию
-        # выбор сделан в сторону govet из-за именованого названия линтера
-        - unusedresult
+        # Однако в некоторых случаях SA4017 может работать и не только на функции стандартной библиотеки
+        #
+        # Выключаем
+        # - unusedresult
 
         # Checks for unused writes.
         # Проверяет ряд случаев когда операция записи значения не используется
@@ -4892,8 +4909,13 @@ linters:
         # 	Name string `json:name`
         # 	age  string `json:"age"`
         # }
+        #
+        # staticcheck.SA5008 выполняет ту же функцию
+        # Однако покрывает больше случаев
+        #
+        # Выключаем
         - name: struct-tag
-          disabled: false
+          disabled: true
           exclude: [""]
           arguments: []
 
@@ -5807,113 +5829,392 @@ linters:
           "TS",
           "YAML",
         ]
+
       checks:
         # Invalid regular expression.
         # https://staticcheck.dev/docs/checks/#SA1000
+        #
+        # Проверяет регулярные выражения
+        #
+        # var invalidRe = regexp.MustCompile("[") // скобка не закрыта, произойдёт паника
+        #
         - SA1000
 
         # Invalid template.
         # https://staticcheck.dev/docs/checks/#SA1001
+        #
+        # Проверяет некоторые ошибки при работе с template/text template/html
+        #
+        # tmpl, err := template.New("check").Parse("{{abc-}}")
+        # if err != nil {
+        # 	panic(err)
+        # }
+        #
+        # _ = tmpl
         - SA1001
 
         # Invalid format in 'time.Parse'.
         # https://staticcheck.dev/docs/checks/#SA1002
+        #
+        # Сообщает о невалидных форматах в time.Parse
+        #
+        # _, _ = time.Parse("123456", "2002-01-01")
         - SA1002
 
         # Unsupported argument to functions in 'encoding/binary'.
         # https://staticcheck.dev/docs/checks/#SA1003
+        #
+        # Проверяет тип последнего аргумента функции encoding/binary.Write
+        #
+        # _ = binary.Write(io.Discard, binary.LittleEndian, chan int(nil))
         - SA1003
 
         # Suspiciously small untyped constant in 'time.Sleep'.
         # https://staticcheck.dev/docs/checks/#SA1004
+        #
+        # Проверяет подозрительно малые константы в time.Sleep
+        #
+        # time.Sleep(1) // пауза в 1 наносекунду несущестенна и выглядит как ошибка
+        #
+        # Не работает если в time.Sleep передана константа
+        #
+        # const minSleepTime = 1
+        #
+        # time.Sleep(minSleepTime)
+        #
         - SA1004
 
         # Invalid first argument to 'exec.Command'.
         # https://staticcheck.dev/docs/checks/#SA1005
+        #
+        # Сообщает об ошибках при использовании exec.Command
+        #
+        # НЕ РАБОТАЕТ на exec.CommandContext который является рекомендуемой альтернативой
+        #
+        # До
+        #	_ = exec.Command("ls arg1 arg2") // аргумента переданы в строке через пробел, ошибка
+        # После
+        #	_ = exec.Command("ls", "arg1", "arg2")
+        #
+        # Почти бесполезен...
         - SA1005
 
         # 'Printf' with dynamic first argument and no further arguments.
         # https://staticcheck.dev/docs/checks/#SA1006
-        - SA1006
+        #
+        # Обнаруживает вызовы fmt.Printf с динамическим содержимым без дополнительных параметров
+        #
+        # dynamic := "dynamic text"
+        #
+        # fmt.Printf(dynamic)
+        #
+        # govet.printf выполняет ту же самую фукнцию
+        # Выключаем
+        # - SA1006
 
         # Invalid URL in 'net/url.Parse'.
         # https://staticcheck.dev/docs/checks/#SA1007
+        #
+        # Обнаруживает ряд невалидных значений в net/url.Parse
+        #
+        #	_, _ = url.Parse(":") // невалидное значение
+        #
         - SA1007
 
         # Non-canonical key in 'http.Header' map.
         # https://staticcheck.dev/docs/checks/#SA1008
+        #
+        # Сообщает о невалидных ключах http.Header
+        #
+        #	header := make(http.Header)
+        # _ = header["foo"] // сырое получение по неканоничному ключу, может промахнутся
+        # _ = header.Get("foo") // получение через метод, ключ будет обработан функцией textproto.CanonicalMIMEHeaderKey
+        #
         - SA1008
 
         # '(*regexp.Regexp).FindAll' called with 'n == 0', which will always return zero results.
         # https://staticcheck.dev/docs/checks/#SA1010
+        #
+        # Вызов (*regexp.Regexp).FindAll в вторым аргументом равным 0 является бессмысленным
+        # и всегда будет возвращать 0 результатов
         - SA1010
 
         # Various methods in the "strings" package expect valid UTF-8, but invalid input is provided.
         # https://staticcheck.dev/docs/checks/#SA1011
+        #
+        # Сообщает о невалидных аргументах в функциях пакета strings
+        #
+        # _ = strings.Trim("\x80test\xff", "\xff") // "\xff" не является валидным utf-8
+        # если вывести рехультат такого выражения то мы получим test, "\xff" - неизвестным символ
         - SA1011
 
         # A nil 'context.Context' is being passed to a function, consider using 'context.TODO' instead.
         # https://staticcheck.dev/docs/checks/#SA1012
+        #
+        # Сообщает об использовании nil значения контекста как аргумента функции
+        #
+        # Используйте context.Background() или context.TODO()
+        #
+        # func passContext(context.Context) {}
+        #
+        # До
+        # passContext(nil)
+        #
+        # После
+        # passContext(context.Background())
+        # passContext(context.TODO())
+        #
+        # К сожалению линтер не обрабатывает
+        # passContext(context.Context(nil))
+        #
         - SA1012
 
         # 'io.Seeker.Seek' is being called with the whence constant as the first argument, but it should be the second.
         # https://staticcheck.dev/docs/checks/#SA1013
+        #
+        # Сообщает об ошибке в порядке следования аргументов в методе io.Seeker.Seek
+        #
+        # До
+        #	file.Seek(io.SeekEnd, 0) // сначала должен следовать 0 (offset) и только потом метка (whence)
+        # После
+        # file.Seek(0, io.SeekEnd)
+        #
         - SA1013
 
         # Non-pointer value passed to 'Unmarshal' or 'Decode'.
         # https://staticcheck.dev/docs/checks/#SA1014
+        #
+        # Сообщает когда последним аргументов функции не является ссылка
+        #
+        # data := []byte{}
+        #
+        # dest := make(map[string]any)
+        #
+        # До
+        # _ = json.Unmarshal(data, dest)
+        # После
+        # _ = json.Unmarshal(data, &dest) // указатель на map[string]any
+        #
+        # govet.unmarshal выполняет ту же самую функцию
+        #
+        # Выключаем
         # - SA1014
 
         # Using 'time.Tick' in a way that will leak. Consider using 'time.NewTicker', and only use 'time.Tick' in tests, commands and endless functions.
         # https://staticcheck.dev/docs/checks/#SA1015
+        #
+        # До go 1.23 time.Tick не собирался garbage collector, что могло привести к утечке памяти
+        # До
+        # select {
+        # case <-time.Tick(time.Second):
+        # default:
+        # }
+        #
+        # После
+        # ticker := time.NewTicker(time.Second)
+        #
+        # select {
+        # case <-ticker.C:
+        # default:
+        # }
+        #
+        # Для go 1.23+ не актуален
+        #
         - SA1015
 
         # Trapping a signal that cannot be trapped.
         # https://staticcheck.dev/docs/checks/#SA1016
+        #
+        # Сообщает о сигналах которые не могут быть отловлены
+        #
+        # signal.Notify(
+        # 	make(chan<- os.Signal, 1),
+        #   // данные сигналы никогда не поступают в процесс а обрабатываются ядром ОС напрямую
+        # 	syscall.SIGKILL,
+        # 	syscall.SIGSTOP,
+        #   os.Kill,
+        # )
+        #
+        # Не работает на signal.NotifyContext
+        #
         - SA1016
 
         # Channels used with 'os/signal.Notify' should be buffered.
         # https://staticcheck.dev/docs/checks/#SA1017
-        - SA1017
+        #
+        # signal.Notify должен принимать в себя буферизированный канал
+        #
+        # ch := make(chan os.Signal)
+        #
+        # signal.Notify(ch, os.Interrupt)
+        #
+        # govet.sigchanyzer выполняет ту же самую функцию
+        #
+        # Выключаем
+        #
+        # - SA1017
 
         # 'strings.Replace' called with 'n == 0', which does nothing.
         # https://staticcheck.dev/docs/checks/#SA1018
-        - SA1018
+        #
+        # Вызов strings.Replace с 0 быссмысленнен
+        #
+        # _ = strings.Replace("hel lo", " ", "", 0)
+        #
+        # gocritic.badCall выполняет ту же самую функцию
+        #
+        # Выключаем
+        # - SA1018
 
         # Using a deprecated function, variable, constant or field.
         # https://staticcheck.dev/docs/checks/#SA1019
+        #
+        # Обнаруживает использование deprecated функций, констант, пакетом, полей и тд
+        #
+        # Неправильно
+        # import _ "io/ioutil"
+        #
+        # Правильно
+        # import _ "io"
+        # import _ "os"
+        #
         - SA1019
 
         # Using an invalid host:port pair with a 'net.Listen'-related function.
         # https://staticcheck.dev/docs/checks/#SA1020
+        #
+        # Сообщает об ошибках при работе с http.ListenAndServe и http.ListenAndServeTLS
+        #
+        # http.ListenAndServe("localhost", nil) // невалидный host:port
+        #
         - SA1020
 
         # Using 'bytes.Equal' to compare two 'net.IP'.
         # https://staticcheck.dev/docs/checks/#SA1021
+        #
+        # Сообщает о сранении net.IP через bytes.Equal
+        # userIP := net.ParseIP("192.0.0.1")
+        # hostIP := net.ParseIP("192.0.1.1")
+        #
+        # bytes.Equal(userIP, hostIP)
+        #
+        # Необходимо использовать метод net.IP.Equal
+        # userIP.Equal(hostIP)
+        #
+        # метод net.IP.Equal содержит код для сравнения ipv4 и ipv6
+        # если их сравнивать через bytes.Equal мы получим false по причине разности длин
+        #
         - SA1021
 
         # Modifying the buffer in an 'io.Writer' implementation.
         # https://staticcheck.dev/docs/checks/#SA1023
+        #
+        # Реализации интерфейса io.Writer не должны модифицировать
+        # входящий []byte
+        #
+        # type WrongWriter struct{}
+        #
+        # func (WrongWriter) Write(buf []byte) (int, error) {
+        # 	buf[0] = 1 // модифицирует входящие данные
+        #
+        # 	return 0, nil
+        # }
+        #
         - SA1023
 
         # A string cutset contains duplicate characters.
         # https://staticcheck.dev/docs/checks/#SA1024
+        #
+        # Функции strings.Trim(|Left|Right) принимают в себя аргумент cutset
+        # он уберёт из результата все символы которые содержаться в этом cutset
+        # независимо от их порядка следования
+        #
+        # соответственно бессмыслено дублировать символы в подобных функциях
+        #
+        # До
+        # _ = strings.Trim("111112345", "11111") // результат: 2345
+        # После
+        # _ = strings.Trim("111112345", "1") // результат: 2345
+        #
         - SA1024
 
         # It is not possible to use '(*time.Timer).Reset''s return value correctly.
         # https://staticcheck.dev/docs/checks/#SA1025
+        #
+        # Reset() возвращает true, если таймер был активен, но это не гарантирует, что вы успеете прочитать из канала до его срабатывания.
+        #
+        # timer := time.NewTimer(time.Hour)
+        #
+        # if timer.Reset(time.Second) {
+        # 	<-timer.C
+        # }
+        #
         - SA1025
 
         # Cannot marshal channels or functions.
         # https://staticcheck.dev/docs/checks/#SA1026
-        - SA1026
+        #
+        # Невозможно вызвать Marshal на каналах или функциях
+        #
+        # _, _ = json.Marshal(chan int(nil)) // приведет к ошибке
+        #
+        # errchkjson выполняет ту же самую фукнцию
+        # Только его фукнционал гораздо шире и может проверять так же структур
+        #
+        # Выключаем
+        # - SA1026
 
         # Atomic access to 64-bit variable must be 64-bit aligned.
         # https://staticcheck.dev/docs/checks/#SA1027
-        - SA1027
+        #
+        # Связано с выравниваем чисел на 32 битных платформах
+        #
+        # govet.atomicalign выполняет ту же самую фукнцию
+        #
+        # // +build 386 arm armbe mips mipsle ppc s390 sparc riscv
+        #
+        # package pkg
+        #
+        # import "sync/atomic"
+        #
+        # type T struct {
+        # 	A int64
+        # 	B int32
+        # 	C int64
+        # }
+        #
+        # func fn() {
+        # 	var v T
+        # 	atomic.AddInt64(&v.A, 0)
+        # 	atomic.AddInt64(&v.C, 0) //@ diag(`address of non 64-bit aligned field C passed to sync/atomic.AddInt64`)
+        # 	atomic.LoadInt64(&v.C)   //@ diag(`address of non 64-bit aligned field C passed to sync/atomic.LoadInt64`)
+        # }
+        #
+        # func fn2(t *T) {
+        # 	addr := &t.C
+        # 	if true {
+        # 		atomic.LoadInt64(addr) //@ diag(`address of non 64-bit`)
+        # 	} else {
+        # 		_ = addr
+        # 	}
+        # }
+        #
+        # Выключаем
+        #
+        # - SA1027
 
         # 'sort.Slice' can only be used on slices.
         # https://staticcheck.dev/docs/checks/#SA1028
+        #
+        # sort.Slice может быть вызвана только для списков
+        #
+        #
+        # notSlice := 1
+        # sort.Slice(notSlice, func(i, j int) bool { return true })
+        #
+        # govet.sortslice выполняет ту же самую фукнцию
+        #
+        # Выключаем
         # - SA1028
 
         # Inappropriate key in call to 'context.WithValue'.
@@ -5943,39 +6244,143 @@ linters:
         #
         # Второй аргумент функции - base должен быть 0, 2 <= base <= 36
         # Третий аргумент функциюю - bitSize должен быть 0 <= bitSize <= 64
+        #
         # https://staticcheck.dev/docs/checks/#SA1030
         - SA1030
 
         # Overlapping byte slices passed to an encoder.
         # https://staticcheck.dev/docs/checks/#SA1031
+        #
+        # Сообщает о ситуации когда в методы encode параметры dst, src указывают на один и тот же фрагмент памяти
+        # Это может приводить к нежелательным последствиям в случае если в кодировке
+        # один байт может быть кодирован как два
+        #
+        # src := []byte{}
+        # dst := src
+        #
+        # hex.Encode(dst, src)
+        #
         - SA1031
 
         # Wrong order of arguments to 'errors.Is'.
         # https://staticcheck.dev/docs/checks/#SA1032
+        #
+        # Обнаруживает неверный порядок аргументов в errors.Is
+        #
+        # первым аргументом должна идти динамическая переменная
+        # а вторым глобальная переменная
+        #
+        # _, err := os.Open("check")
+        # if errors.Is(io.ErrUnexpectedEOF, err) {
+        # 	panic(err)
+        # }
+        #
         - SA1032
 
         # 'sync.WaitGroup.Add' called inside the goroutine, leading to a race condition.
         # https://staticcheck.dev/docs/checks/#SA2000
+        #
+        # Вызов sync.WaitGroup.Add в горутинах может приводить к гонкам данных
+        # и неопределённому поведению из-за того что мы можем просто не дожаться
+        # выполнения такой горутины, ведь вызов wg.Add может попросту не произойти
+        # из-за вызова внутри горутины
+        #
+        # wg := sync.WaitGroup{}
+        #
+        # go func() {
+        # 	wg.Add(1)
+        # 	wg.Done()
+        # }()
+        #
+        # wg.Wait()
+        #
+        # govet.waitgroup выполняет ту же самую функцию
+        #
+        # Выключаем
         # - SA2000
 
         # Empty critical section, did you mean to defer the unlock?.
         # https://staticcheck.dev/docs/checks/#SA2001
-        - SA2001
+        # Сообщает об отсутствии кода межджу mu.Lock и mu.Unlock
+        # что может свидетельтсвовать о том что мы просто забыли defer
+        #
+        # До
+        # mu := sync.Mutex{}
+        #
+        # mu.Lock()
+        # mu.Unlock() // бессмысленная блокировка ряди блокировки
+        #
+        # После
+        #
+        # mu := sync.Mutex{}
+        #
+        # mu.Lock()
+        # defer mu.Unlock() // разблокировка будет выполнена в конце функции
+        #
+        # gocritic.badCall выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - SA2001
 
         # Called 'testing.T.FailNow' or 'SkipNow' in a goroutine, which isn't allowed.
         # https://staticcheck.dev/docs/checks/#SA2002
-        - SA2002
+        #
+        # Вызов t.FailNow, t.SkipNow из не тестовой горутины может привести к нежелательному поведению
+        #
+        # Дело в том что они вызывают runtime.Goexit который завершает работу текущей горутины
+        #
+        # Её вызов не из тестовой горутины приведет к завершению теста, но не самой горутины
+        #
+        # Что может привести к нежелательному поведению
+        #
+        # govet.testinggoroutine выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - SA2002
 
         # Deferred 'Lock' right after locking, likely meant to defer 'Unlock' instead.
         # https://staticcheck.dev/docs/checks/#SA2003
-        - SA2003
+        #
+        # Сообщает о defer mu.Lock после захвата блокировки
+        # что зачастую является опечаткой, однако приводит к нежелательному поведению
+        #
+        #	mu := sync.Mutex{}
+        #
+        # До
+        # mu.Lock()
+        # defer mu.Lock() // ошибка, мы не разблокировали мьютекс для повторной блокировки
+        #
+        # После
+        # mu.Lock()
+        # defer mu.Unlock() // верно
+        #
+        # gocritic.badCall выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - SA2003
 
         # 'TestMain' doesn't call 'os.Exit', hiding test failures.
         # https://staticcheck.dev/docs/checks/#SA3000
+        #
+        # До go 1.15 требовалось явно вызывать os.Exit в функции TestMain по завершению тестов
+        #
+        # Сейчас же этого не требуется
+        #
+        # func TestMain(m *testing.M) {
+        # 	exitCode := m.Run()
+        #   _ = exitCode
+        # }
+        #
         - SA3000
 
         # Assigning to 'b.N' in benchmarks distorts the results.
         # https://staticcheck.dev/docs/checks/#SA3001
+        #
+        # Переопределение b.N недопустимо по причине искажения результатов бенчмарка
+        #
+        # func Benchmark_Staticcheck(b *testing.B) {
+        # 	b.N = 0
+        # }
         - SA3001
 
         # Binary operator has identical expressions on both sides.
@@ -5994,14 +6399,55 @@ linters:
 
         # '&*x' gets simplified to 'x', it does not copy 'x'.
         # https://staticcheck.dev/docs/checks/#SA4001
+        #
+        # Конструкции вида &*x могут быть опущены до x так как не дают никакого эффекта
+        #
+        # До
+        # newPtr := &*oldPtr
+        #
+        # После
+        # newPtr := oldPtr
+        #
         - SA4001
 
         # Comparing unsigned values against negative values is pointless.
         # https://staticcheck.dev/docs/checks/#SA4003
+        #
+        # У числовых типов есть минимальные и максимальные значения
+        # Бессмысленно сравнивать int8(digit) > 127 потому что 127 максимальное значение
+        # для int8 и нет ничего больше этого значения в рамках типа int8
+        #
+        # Точно так же быссмысленно сравнивать int8(digt) < -128 так как -128 минимальное значение
+        # для типа int8 и никакое другое значение не может быть меньше
+        #
+        # Работает и на другие числовые типы
+        #
+        # digit := int8(1)
+        #
+        # if digit > 127 { // всегда false
+        # 	panic("impossible")
+        # }
+        #
+        # if digit < -128 { // всегда false
+        # 	panic("impossible")
+        # }
+        #
         - SA4003
 
         # The loop exits unconditionally after one iteration.
         # https://staticcheck.dev/docs/checks/#SA4004
+        #
+        # Сообщает о циклах которые всегда будут завершаться после первой итерации
+        #
+        # const iterationsCount = 1
+        #
+        # for range iterationsCount {
+        # 	if false {
+        # 		panic("impossible")
+        # 	}
+        #
+        # 	break
+        # }
         - SA4004
 
         # Field assignment that will never be observed. Did you mean to use a pointer receiver?.
@@ -6032,10 +6478,33 @@ linters:
 
         # A value assigned to a variable is never read before being overwritten. Forgotten error check or dead code?.
         # https://staticcheck.dev/docs/checks/#SA4006
-        - SA4006
+        #
+        # Сообщает о переменных чьё значение не используется до следующего присваивания
+        #
+        # _, err := os.ReadFile("myfile") // значение err не используется
+        #
+        # _, err = os.ReadFile("newfile") // здесь переменная переопределяется так и не будучи использованной с момента инициализации
+        # if err != nil {
+        # 	panic(err)
+        # }
+        #
+        # ineffassign выполняет ту же самую фукнцию
+        # Однако его пул проверок гораздо шире
+        #
+        # Выключаем
+        # - SA4006
 
         # The variable in the loop condition never changes, are you incrementing the wrong variable?.
         # https://staticcheck.dev/docs/checks/#SA4008
+        #
+        # Обнаруживает ошибки в цикле-счётчике
+        #
+        # var j int
+        #
+        # for i := 0; i < 10; j++ { // инкрементирует не 'i' а 'j'
+        # 	panic("check")
+        # }
+        #
         - SA4008
 
         # A function argument is overwritten before its first use.
@@ -6059,18 +6528,72 @@ linters:
 
         # The result of 'append' will never be observed anywhere.
         # https://staticcheck.dev/docs/checks/#SA4010
-        - SA4010
+        #
+        # Результат append нигде не используется
+        #
+        #	orig := make([]byte, 0)
+        #
+        # orig = append(orig, 1)
+        #
+        # // ... Далее в коде не используется
+        #
+        # ineffassign выполняет ту же самую фукнцию
+        # Однако его пул проверок гораздо шире
+        #
+        # Выключаем
+        # - SA4010
 
         # Break statement with no effect. Did you mean to break out of an outer loop?.
         # https://staticcheck.dev/docs/checks/#SA4011
-        - SA4011
+        #
+        # Подмечает бесполезные break внутри switch и select внутри циклов
+        #
+        #
+        # for {
+        # 	switch {
+        # 	case true:
+        # 		break // бесполезный break, имеет эффект только на switch
+        # 	default:
+        # 	}
+        #
+        # 	select {
+        # 	case <-time.After(time.Microsecond):
+        # 		break // бесполезный break, имеет эффект только на select
+        # 	case <-time.After(time.Hour):
+        # 	}
+        # }
+        #
+        #
+        # revive.useless-break выполняет ту же самую фукнцию
+        # revive.unnecessary-stmt выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - SA4011
 
         # Comparing a value against NaN even though no value is equal to NaN.
         # https://staticcheck.dev/docs/checks/#SA4012
+        #
+        # Нет смысла сравнивать какое-либо число с NaN
+        # результат всегда будет false
+        #
+        # nanCompared := 100.0
+        #
+        # if nanCompared == math.NaN() {
+        # 	panic("impossible")
+        # }
         - SA4012
 
         # Negating a boolean twice ('!!b') is the same as writing 'b'. This is either redundant, or a typo.
         # https://staticcheck.dev/docs/checks/#SA4013
+        #
+        #
+        # После двойного отрицания любой bool самому себе, поэтому его можно опустить
+        #
+        # boolean := false
+        #
+        # if !!boolean {
+        # 	panic("useless")
+        # }
         - SA4013
 
         # An if/else if chain has repeated conditions and no side-effects; if the condition didn't match the first time, it won't match the second time, either.
@@ -6091,74 +6614,265 @@ linters:
 
         # Calling functions like 'math.Ceil' on floats converted from integers doesn't do anything useful.
         # https://staticcheck.dev/docs/checks/#SA4015
+        #
+        # Бесполезно вызывать math.Ceil, math.Floor методы с float которые были получены
+        # путём конвертации из int
+        #
+        # func fn(x int) {
+        # 	math.Ceil(float64(x))      //@ diag(`on a converted integer is pointless`)
+        # 	math.Floor(float64(x * 2)) //@ diag(`on a converted integer is pointless`)
+        # }
         - SA4015
 
         # Certain bitwise operations, such as 'x ^ 0', do not do anything useful.
         # https://staticcheck.dev/docs/checks/#SA4016
+        #
+        # Сообщает о бесполезных битовых операциях
+        #
+        # func fn(x int) {
+        # 	println(x | 0)        //@ diag(`x | 0 always equals x`)
+        # 	println(x & 0)        //@ diag(`x & 0 always equals 0`)
+        # 	println(x ^ 0)        //@ diag(`x ^ 0 always equals x`)
+        # 	println((x << 5) | 0) //@ diag(`(x << 5) | 0 always equals (x << 5)`)}
+        # }
+        #
+        #
         - SA4016
 
         # Discarding the return values of a function without side effects, making the call pointless.
         # https://staticcheck.dev/docs/checks/#SA4017
+        #
+        # Сообщает об неиспользуемом результате ряда функций стандартной библиотеки
+        # вызов таких функций не приводит к изменениям и их вызов может быть убран
+        # в случае если значение не используется
+        #
+        # fmt.Sprint(1) // значение не используется
+        # _ = fmt.Sprint(1) // OK, мы присваиваем значение (используем)
+        #
+        # foo(1, 1) // значение не используется
+        # _ = foo(1, 1) // OK, мы присваиваем значение (используем)
+        #
+        # Линтер работает только на самые простые случаи
+        # например сложение двух чисел
+        # func foo(a, b int) int { return a + b }
+        #
         - SA4017
 
         # Self-assignment of variables.
         # https://staticcheck.dev/docs/checks/#SA4018
-        - SA4018
+        #
+        # Самоприсваивание переменных
+        #
+        # a := 0
+        # a = a // бесполезная операция
+        #
+        # ineffassign выполняет ту же самую фукнцию
+        # Однако он работает на весь спектр проблем
+        # с неэффективным присвоением
+        #
+        # Выключаем
+        # - SA4018
 
         # Multiple, identical build constraints in the same file.
         # https://staticcheck.dev/docs/checks/#SA4019
+        #
+        #
+        # Сообщает о дублях в build декларациях в рамках одного файла
+        #
+        # //go:build (one || two || three || go1.1) && (three || one || two || go1.1)
+        # // +build one two three go1.1
+        # // +build three one two go1.1
+        #
+        #
         - SA4019
 
         # Unreachable case clause in a type switch.
         # https://staticcheck.dev/docs/checks/#SA4020
+        #
+        # Сообщает о недостижимых case в type switch
+        #
+        # type MyReader struct{}
+        #
+        # func (MyReader) Read(b []byte) (int, error) { return 0, nil }
+        #
+        # var v any = MyReader{}
+        #
+        # func main() {
+        # 	switch v.(type) {
+        # 	case io.Reader:
+        #   // Так как v имплементирует io.Reader, а эта
+        #   // ветка идёт позже, то она никогда не выполнится
+        # 	case MyReader:
+        # 	}
+        # }
+        #
         - SA4020
 
         # "x = append(y)" is equivalent to "x = y".
         # https://staticcheck.dev/docs/checks/#SA4021
-        - SA4021
+        #
+        # x := append(y) безполезен, данныя запись
+        # эквивалентна x := y
+        #
+        # gocritic.badCall выполняет ту же самую фукнцию
+        # Однако спектр его работы гораздо шире
+        #
+        # Выключаем
+        # - SA4021
 
         # Comparing the address of a variable against nil.
         # https://staticcheck.dev/docs/checks/#SA4022
-        - SA4022
+        #
+        # Сравнивать указатель от значения с nil бесполезно так как он не может быть равен nil
+        #
+        # empty := struct{}{}
+        #
+        # if &empty == nil {
+        # 	panic("impossible")
+        # }
+        #
+        # govet.nilness выполняет ту же самую фукнцию
+        # Однако спектр его работы гораздо шире
+        #
+        # Выключаем
+        # - SA4022
 
         # Impossible comparison of interface value with untyped nil.
         # https://staticcheck.dev/docs/checks/#SA4023
-        - SA4023
+        #
+        # nil указатель на структуру не равен nil интерфейсам
+        # var nilStruct *struct{}
+        #
+        # if nilStruct == any(nil) {
+        # 	panic("impossible")
+        # }
+        #
+        # govet.nilness выполняет ту же самую функцию
+        # Однако его функционал гораздо шире
+        #
+        # Выключаем
+        #
+        # - SA4023
 
         # Checking for impossible return value from a builtin function.
         # https://staticcheck.dev/docs/checks/#SA4024
+        #
+        # cap и len всегда возвращают не отрицательный результат
+        #
+        # slice := []int{}
+        #
+        # if cap(slice) < 0 {
+        # 	panic("impossible")
+        # }
+        #
+        # if len(slice) < 0 {
+        # 	panic("impossible")
+        # }
         - SA4024
 
         # Integer division of literals that results in zero.
         # https://staticcheck.dev/docs/checks/#SA4025
+        #
+        # Сообщает о статичных численных выражениях которые всегда равны 0
+        #
+        #	const check = 2 / 3 // по скольку check это int а 2/3 = 0.66 check всегда равна нулю
         - SA4025
 
         # Go constants cannot express negative zero.
         # https://staticcheck.dev/docs/checks/#SA4026
+        #
+        # Запрещает присвоение переменным и константам -0.0
+        #
+        # Особый кейс math.Copysign
+        #
+        # До
+        # negativeZero := -0.0
+        #
+        # После
+        # negativeZero := math.Copysign(0, -1)
+        #
         - SA4026
 
         # '(*net/url.URL).Query' returns a copy, modifying it doesn't change the URL.
         # https://staticcheck.dev/docs/checks/#SA4027
+        #
+        # Модификация значения (*net/url.URL).Query бесполезна
+        #
+        # baseURL.Query().Add("key", "value") // не имеет смысла
+        #
+        # На сырую модификацию не реагирует
+        # baseURL.Query()["key"] = []string{}
+        #
         - SA4027
 
         # 'x % 1' is always zero.
         # https://staticcheck.dev/docs/checks/#SA4028
+        #
+        # Остаток от деления на 1 всегда 0
+        #
+        # const some = 100
+        # _ = some % 1
+        #
         - SA4028
 
         # Ineffective attempt at sorting slice.
         # https://staticcheck.dev/docs/checks/#SA4029
+        #
+        # sort.IntSlice, sort.StringSlice и так далее
+        # это всего лишь типы, они не выполняют полезной работы
+        #
+        #
+        #
+        # nums := []int{}
+        #
+        # До
+        # nums = sort.IntSlice(nums)
+        # После
+        # sort.Sort(sort.IntSlice(nums))
+        #
         - SA4029
 
         # Ineffective attempt at generating random number.
         # https://staticcheck.dev/docs/checks/#SA4030
+        #
+        # Неэффективная попытка сгенерировать рандомное число
+        #
+        # _ = rand.Intn(1)
+        #
+        # rand.Intn возвращает значение не меньшее нуля и не большее входящего числа
+        # rand.Intn(1) всегда равен нулю
         - SA4030
 
         # Checking never-nil value against nil.
         # https://staticcheck.dev/docs/checks/#SA4031
-        - SA4031
+        #
+        # Сравнение ненулевого указателя с nil всегда false
+        # num := new(int)
+        #
+        # if num == nil { // бесполезное сравнение
+        # 	panic("impossible")
+        # }
+        #
+        # - SA4031
 
         # Comparing 'runtime.GOOS' or 'runtime.GOARCH' against impossible value.
         # https://staticcheck.dev/docs/checks/#SA4032
+        #
+        # Сообщает о случаях когда сравнение runtime.GOOS и runtime.GOARCH бесполезно
+        #
+        #
+        # //go:build linux // код будет включен только при сборке под линукс
+        #
+        # package linter
+        #
+        # import "runtime"
+        #
+        # func main() {
+        # 	if runtime.GOOS == "darwin" { // всегда false
+        # 		panic("impossible")
+        # 	}
+        # }
+        #
         - SA4032
 
         # Assignment to nil map.
@@ -6171,22 +6885,89 @@ linters:
 
         # Deferring 'Close' before checking for a possible error.
         # https://staticcheck.dev/docs/checks/#SA5001
+        #
+        # Обнаруживает defer closer.Close() до обработки ошибки
+        # что может повлечь к nil pointer panic
+        #
+        # До
+        # file, err := os.Open("myfile")
+        # defer file.Close()
+        #
+        # if err != nil {
+        # 	panic("unexpected error")
+        # }
+        #
+        # После
+        # file, err := os.Open("myfile")
+        # if err != nil {
+        # 	panic("unexpected error")
+        # }
+        #
+        # defer func() { _ = file.Close() }()
+        #
+        #
+        # Не отрабатывает на ананонимные фукнци
+        #
+        # file, err := os.Open("myfile")
+        # defer func() { _ = file.Close() }() // никаких предупреждений
+        #
+        # if err != nil {
+        # 	panic("unexpected error")
+        # }
+        #
         - SA5001
 
         # The empty for loop ("for {}") spins and can block the scheduler.
         # https://staticcheck.dev/docs/checks/#SA5002
-        - SA5002
+        #
+        # Пустой for {} просто прокручивает цикл
+        #
+        # revive.empty-block запрещает любой пустой блок
+        #
+        # Выключаем
+        # - SA5002
 
         # Defers in infinite loops will never execute.
         # https://staticcheck.dev/docs/checks/#SA5003
-        - SA5003
+        #
+        # defer в бесконечном цикле никогда не будет выполнен
+        #
+        # defer panic("unexpected")
+        #
+        # revive.defer выполняет ту же самую функцию
+        # Однако его фукнционал гораздо шире
+        #
+        # Выключаем
+        # - SA5003
 
         # "for { select { ..." with an empty default branch spins.
         # https://staticcheck.dev/docs/checks/#SA5004
+        #
+        # select с путой default веткой в бесконечном цикле может его прокручивать
+        #
+        # for {
+        # 	select {
+        # 	case <-time.After(time.Second):
+        # 	default: бесполезен и только прокручивает цикл
+        # 	}
+        # }
         - SA5004
 
         # The finalizer references the finalized object, preventing garbage collection.
         # https://staticcheck.dev/docs/checks/#SA5005
+        #
+        # Сообщает о случаях когда замыкание переданное в finalizer захватывает переменную
+        # для которой предназначен финализатор, что может приводить к утечкам памяти
+        # ведь финализатор никогда не выполнится по скольку
+        #
+        # До тех пор пока доступен foo будет и доступен x
+        # по скольку foo доступен до тех пор пока доступен x (из-за Finalier)
+        # создаётся замкнутый круг
+        #
+        #
+        # var x *int
+        # foo := func(*int) { fmt.Println(x) }
+        # runtime.SetFinalizer(x, foo)
         - SA5005
 
         # Infinite recursive call.
@@ -6205,22 +6986,85 @@ linters:
 
         # Invalid struct tag.
         # https://staticcheck.dev/docs/checks/#SA5008
+        #
+        # Валидирует теги структур
+        #
+        #
+        # type T1 struct {
+        # 	B int        `foo:""` // @ diag(`duplicate struct tag`)
+        # 	C int        `foo:"" bar:""`
+        # 	D int        `              json:"-"`
+        # 	E int        `              json:"\"`                    // @ diag(`invalid JSON field name`)
+        # 	F int        `              json:",omitempty,omitempty"` // @ diag(`duplicate JSON option "omitempty"`)
+        # 	G int        `              json:",omitempty,string"`
+        # 	H int        `              json:",string,omitempty,string"` // @ diag(`duplicate JSON option "string"`)
+        # 	I int        `              json:",foreign"`                 // @ diag(`unknown JSON option "foreign"`)
+        # 	J int        `              json:",string"`
+        # 	K *int       `              json:",string"`
+        # 	L **int      `              json:",string"` // @ diag(`the JSON string option`)
+        # 	M complex128 `              json:",string"` // @ diag(`the JSON string option`)
+        # 	N int        `              json:"some-name"`
+        # 	O int        `              json:"some-name,omitzero,omitempty,nocase,inline,unknown,format:'something,with,commas'"`
+        # }
+        #
         - SA5008
 
         # Invalid Printf call.
         # https://staticcheck.dev/docs/checks/#SA5009
-        - SA5009
+        #
+        # Реагирует на неверное использование функций форматирования
+        #
+        # fmt.Sprintf("invalid: %f", "Hello") // %f предназначена для float значений
+        #
+        # govet.printf выполняет ту же самую функцию
+        #
+        # Выключаем
+        # - SA5009
 
         # Impossible type assertion.
         # https://staticcheck.dev/docs/checks/#SA5010
+        #
+        # Сообщает о невозможных приведениях типов
+        #
+        #
+        # type InvalidReader interface {
+        # 	Read()
+        # }
+        #
+        # ir := InvalidReader(nil)
+        #
+        # _, ok := ir.(io.Reader)
+        # _ = ok
+        #
+        # По скольку тип имплементирующий InvalidReader имеет метод Read
+        # он никогда не сможет имплементировать io.Reader потому что у io.Reader другая
+        # сигнатура метода Read
+        #
         - SA5010
 
         # Possible nil pointer dereference.
         # https://staticcheck.dev/docs/checks/#SA5011
+        #
+        # В случае если в функции есть разыменование указателя до его проверки на nil
+        # и при этом проверка на nil присутствует, сообщает о нарушении
+        #
+        # func process(x *int) {
+        # 	_ = *x
+        #
+        # 	if x != nil {
+        # 		panic("nil")
+        # 	}
+        # }
         - SA5011
 
         # Passing odd-sized slice to function expecting even size.
         # https://staticcheck.dev/docs/checks/#SA5012
+        #
+        # Передача списков с нечетным количеством аргументов в функции
+        # где ожидается четное количество аргументов
+        #
+        #	replaceArgs := []string{"odd"}
+        # strings.NewReplacer(replaceArgs...)
         - SA5012
 
         # Using 'regexp.Match' or related in a loop, should use 'regexp.Compile'.
@@ -6682,6 +7526,7 @@ run:
   timeout: "1m"
   issues-exit-code: 1
   tests: true
+  build-tags: []
 
 issues:
   # Не ограничивает линтеры в количестве сообщений

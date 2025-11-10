@@ -1,5 +1,3 @@
-package linter
+package main
 
-func Do() error {
-	return nil
-}
+func main() {}
