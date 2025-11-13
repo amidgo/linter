@@ -1542,10 +1542,13 @@ linters:
 
         # https://go-critic.com/overview.html#preferfprint
         # Обнаруживает случаи когда fmt.Sprint(f/ln) может быть заменено на fmt.Fprint(f/ln)
+        #
         # До
         # w.Write([]byte(fmt.Sprintf("%x", 10)))
+        #
         # После
         # fmt.Fprintf(w, "%x", 10)
+        #
         - preferFprint
 
         # https://go-critic.com/overview.html#preferstringwriter
@@ -8484,8 +8487,25 @@ linters:
         #
         - S1040
 
+        # ОСТОРОЖНО!!!
+        # Правила с префиксом QF вносят изменения в код если включен --fix флаг
+        # ОСТОРОЖНО!!!
+
         # Apply De Morgan's law.
         # https://staticcheck.dev/docs/checks/#QF1001
+        #
+        # Упрощает булевы выражения, применяя законы де Моргана
+        #
+        # var a, b, c bool
+        # var e, f, g int
+        # var h, i float64
+        #
+        # До
+        # _ = !(a && b && (!c || e > f) && g == f) // vможно упростить
+        #
+        # После
+        # _ = !a || !b || c && e <= f || g != f
+        #
         - QF1001
 
         # Convert untagged switch to tagged switch.
@@ -8512,26 +8532,107 @@ linters:
 
         # Convert if/else-if chain to tagged switch.
         # https://staticcheck.dev/docs/checks/#QF1003
+        #
+        # Преобразовывает if else if в switch
+        #
+        # x := 10
+        #
+        # До
+        # if x == 10 {
+        # } else if x == 15 {
+        # }
+        #
+        # После
+        # switch x {
+        # case 10:
+        # case 15:
+        # }
+        #
         - QF1003
 
         # Use 'strings.ReplaceAll' instead of 'strings.Replace' with 'n == -1'.
         # https://staticcheck.dev/docs/checks/#QF1004
-        - QF1004
+        #
+        # Заменяет использование strings.Replace с n == -1 на strings.ReplaceAll
+        #
+        # До
+        # _ = strings.Replace("manman", "man", "amid", -1)
+        #
+        # После
+        # _ = strings.ReplaceAll("manman", "man", "amid")
+        #
+        #
+        # gocritic.wrapperFunc выполняет ту же самую функцию
+        # Однако его фукнционал гораздо шире
+        #
+        # Выключаем
+        # - QF1004
 
         # Expand call to 'math.Pow'.
         # https://staticcheck.dev/docs/checks/#QF1005
+        #
+        # Заменяет выхов math.Pow(x, 2) на x * x
+        #
+        # До
+        #	_ = math.Pow(10, 2)
+        # После
+        # _ = float64(10 * 10)
+        #
         - QF1005
 
         # Lift 'if'+'break' into loop condition.
         # https://staticcheck.dev/docs/checks/#QF1006
+        #
+        # Исправляет бесконечный цикл с вложенным условием на for condition {}
+        #
+        # До
+        # for {
+        # 	if 10%2 == 1 {
+        # 		break
+        # 	}
+        # }
+        #
+        # После
+        # for 10%2 != 1 {...}
         - QF1006
 
         # Merge conditional assignment into variable declaration.
         # https://staticcheck.dev/docs/checks/#QF1007
+        #
+        # Если значение переменной bool инициализируется по условию
+        # замещает условие на прямое присвоение значения
+        #
+        # До
+        # condition := false
+        #
+        # if true {
+        # 	condition = true
+        # }
+        #
+        # После
+        # condition := true
+        #
         - QF1007
 
         # Omit embedded fields from selector expression.
         # https://staticcheck.dev/docs/checks/#QF1008
+        #
+        # Обязывает использовать поля и методы вложенных структур напрямую
+        #
+        # type Child struct {
+        # 	Name string
+        # }
+        #
+        # type Parent struct{ Child }
+        #
+        # parent := new(Parent)
+        #
+        # До
+        # _ = parent.Child.Name
+        #
+        # После
+        # _ = parent.Name
+        #
         - QF1008
 
         # Use 'time.Time.Equal' instead of '==' operator.
@@ -8551,6 +8652,22 @@ linters:
 
         # Convert slice of bytes to string when printing it.
         # https://staticcheck.dev/docs/checks/#QF1010
+        #
+        # Перед выводом в stdout []byte необходимо конвертировать его в строку
+        #
+        # До
+        # log.Println([]byte{1, 2})
+        #
+        # После
+        # log.Println(string([]byte{1, 2}))
+        #
+        # Так же работает и на fmt.Sprint
+        # До
+        # _ = fmt.Sprint([]byte{})
+        #
+        # После
+        # _ = fmt.Sprint(string([]byte{}))
+        #
         - QF1010
 
         # Omit redundant type from variable declaration.
@@ -8567,7 +8684,27 @@ linters:
 
         # Use 'fmt.Fprintf(x, ...)' instead of 'x.Write(fmt.Sprintf(...))'.
         # https://staticcheck.dev/docs/checks/#QF1012
-        - QF1012
+        #
+        # Более эффективно и идиоматично использовать fmt.Fprintf(writer, ...)
+        # вместо writer.Write([]byte(fmt.Sprintf(...)))
+        #
+        # До
+        # _, _ = out.WriteString(fmt.Sprintf(format, name))
+        # _, _ = out.Write([]byte(fmt.Sprintf("Hello %s", name)))
+        #
+        # После
+        # _, _ = fmt.Fprintf(out, format, name)
+        #
+        #
+        # Не работает на fmt.Appendf
+        # такая запись действительно имеет смысл
+        #
+        # _, _ = out.Write(fmt.Appendf(make([]byte, 0), format, name)) // не сработает по причине того что имеет начальный буфер
+        #
+        # gocritic.preferFprint выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - QF1012
 
   exclusions:
     # Сообщает что исключение не используется
