@@ -141,6 +141,10 @@ linters:
     # Правило именования переменных типа error, а также типов которые имплементируют error
     # Обязывает именовать типы type XError
     # Обязывает именовать ошибки [e|E]rrX
+    #
+    # Не реагирует на случаи когда переменная error не экспортируется
+    #
+    # var internal = errors.New("internal")
     - errname
 
     # https://golangci-lint.run/docs/linters/configuration/#errorlint
@@ -622,7 +626,9 @@ linters:
 
     # https://golangci-lint.run/docs/linters/configuration/#perfsprint
     # https://github.com/catenacyber/perfsprint
+    #
     # Проверяет возможность замены fmt.Sprint более быстрой альтернативой
+    #
     # Например
     #
     # _ = fmt.Sprint(1)
@@ -972,6 +978,9 @@ linters:
         - pattern: runtime.SetFinalizer
           msg: use runtime.AddCleaup modern and safer implementation
 
+        - pattern: time.Sleep
+          msg: use <-time.After, this more runtime efficent way to delay code execution
+
     funlen:
       # Считает только тело функции
       # Учитывает пустые строчки
@@ -1172,8 +1181,37 @@ linters:
         - commentedOutImport
 
         # https://go-critic.com/overview.html#defaultcaseorder
-        # Запрещает вставлять default в switch куда либо кроме конца
-        - defaultCaseOrder
+        # Запрещает вставлять default в switch куда либо кроме начала или конца
+        #
+        # Плохо
+        # switch {
+        # 	case true:
+        # 	default:
+        # 	case false:
+        # }
+        #
+        # Хорошо
+        # switch {
+        # default:
+        # case true:
+        # case false:
+        # }
+        #
+        # Хорошо
+        # switch {
+        # case true:
+        # case false:
+        # default:
+        # }
+        #
+        # меня не устраивает что он позволяет делать default первой по порядку
+        #
+        # revive.enforce-switch-style выполняет ту же функцию
+        # Однако он позволяет ставить default только последним
+        # и проверяет наличие default ветки в каждом switch case
+        #
+        # Выключаем
+        # - defaultCaseOrder
 
         # https://go-critic.com/overview.html#deferinloop
         # Запрещает вызывать defer в циклах
@@ -1567,10 +1605,12 @@ linters:
 
         # https://go-critic.com/overview.html#redundantsprint
         # Проверяет на наличие излишних fmt.Sprint
+        #
         # До
         # fmt.Sprint(x)
         # После
         # x.String()
+        #
         - redundantSprint
 
         # https://go-critic.com/overview.html#regexpmust
@@ -1788,9 +1828,38 @@ linters:
         - typeDefFirst
 
         # https://go-critic.com/overview.html#typeswitchvar
+        #
         # Обнаруживает переключатели типа, которые могут извлечь выгоду из предложения защиты типа с переменной
         # staticcheck.S1034 выполняет ту же самую функцию
-        - typeSwitchVar
+        #
+        # var reader io.Reader
+        #
+        # До
+        # switch reader.(type) {
+        # case *bytes.Buffer: // reader всё ещё имеет тип io.Reader, необходимо дополнительно кастить тип
+        # 	_, ok := reader.(*bytes.Buffer)
+        # 	_ = ok
+        # case *strings.Reader: // reader всё ещё имеет тип io.Reader, необходимо дополнительно кастить тип
+        # 	_, ok := reader.(*strings.Reader)
+        # 	_ = ok
+        # }
+        #
+        # После
+        # switch reader := reader.(type) {
+        # case *bytes.Buffer:
+        # 	var _ *bytes.Buffer = reader // reader имеет тип *bytes.Buffer
+        # case *strings.Reader:
+        # 	var _ *strings.Reader = reader // reader имеет тип *strings.Reader
+        # }
+        #
+        # staticcheck.S1034 выполняет ту же самую функцию
+        #
+        # Однако мне понравилось что он подсвечивает именно ветки (case), а не просто указывает
+        # на switch где есть проблема
+        #
+        # Выключаем
+        #
+        # - typeSwitchVar
 
         # https://go-critic.com/overview.html#typeunparen
         # Убирает лишние скобочки при объявлении переменных
@@ -3151,38 +3220,51 @@ linters:
       error-format: true
 
       # Optimizes into `err.Error()` even if it is only equivalent for non-nil errors.
+      #
       # Сообщает о возможных упрощениях fmt.Sprint(io.ErrUnexpectedEOF) до io.ErrUnexpectedEOF.Error()
+      #
       # Default: false
-      err-error: false
+      err-error: true
 
       # Optimizes `fmt.Errorf`.
       # Default: true
       # Указывает на замену fmt.Errorf("error message") на errors.New("error message")
+      #
       # revive.use-errors-new и unnecessary-format выполняют ту же самую фукнцию
+      #
       # Выключаем
       errorf: false
 
       # Enable/disable optimization of string formatting.
+      #
       # Является переключателем для линтеров sprint1 и strconcat
       # Без него линтеры работать не будут
+      #
       # До
       # _ = fmt.Sprint("format")
       # После
       # _ = "format"
-      # Отчасти линтер gocritic.redundantSprint выполняет ту же самую фукнцию
+      #
+      # gocritic.redundantSprint выполняет ту же самую фукнцию
+      #
       # Однако распространяется и на fmt.Stringer
-      # Выключаем так как ни один из линтеров строк нам не нужен
+      #
+      # Выключаем так как ни один из линтеров (perfsprint.string-format, perfsprint.sprintf, perfsprint.strconcat) строк нам не нужен
+      #
       # И функционал данных линтеров может быть замещен более
       # фукнциональными альтернативами
+      #
       # Default: true
-      string-format: true
+      string-format: false
 
       # Optimizes `fmt.Sprintf` with only one argument.
       # До
       # _ = fmt.Sprintf("format") // один аргумент в качестве формата
       # После
       # _ = "format"
+      #
       # revive.unnecessary-format выполняет ту же самую функцию
+      #
       # Выключаем
       # Default: true
       sprintf1: false
@@ -3202,6 +3284,7 @@ linters:
       # И этот линтер вынуждает нас конкатенировать строки
       # Хотя в дальнейшем нам опять может понадобится fmt.Sprintf
       # И нам опять придётся переписывать с конкатенации на форматирование
+      #
       # Default: true
       strconcat: false
 
@@ -3640,6 +3723,7 @@ linters:
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#bool-literal-in-expr
         # Обнаруживает участки кода где условие сравнивается с true или false
+        #
         # До
         # if condition == true {
         # 	log.Println("Hello World!")
@@ -4150,8 +4234,20 @@ linters:
         #
         # func do() (error, int)  // НЕВЕРНО error является первым аргументом
         # func do() (int, error)  // ВЕРНО error является последним аргументом
+        #
+        # staticcheck.ST1008 выполняет ту же самую фукнцию
+        #
+        # Однако staticcheck.ST1008 обрабатывает следующий случай
+        #
+        # func fn1() (error, bool) { return nil, true }
+        #
+        # Это может быть полезно для случаев когда мы используем ok pattern
+        #
+        # err, ok := fn1()
+        #
+        # Выключаем
         - name: error-return
-          disabled: false
+          disabled: true
           exclude: [""]
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#error-strings
@@ -5779,6 +5875,9 @@ linters:
       check-return: true
 
     staticcheck:
+      # список кодов которые будут исключены из проверки ST1013
+      http-status-code-whitelist: []
+
       # Расширяем дефолтный список аббревиатур
       initialisms:
         [
@@ -6877,9 +6976,16 @@ linters:
 
         # Assignment to nil map.
         # https://staticcheck.dev/docs/checks/#SA5000
-        # пока не добрался
-        # заметка на будущее
+        #
+        # Взаимодействие с заведомо nil map
+        #
+        # var nilMap map[int]int
+        #
+        # nilMap[0] = 0
+        #
+        #
         # govet.nilness выполняет ту же самую функцию, только его функционал гораздо шире
+        #
         # Выключаем
         # - SA5000
 
@@ -7069,59 +7175,310 @@ linters:
 
         # Using 'regexp.Match' or related in a loop, should use 'regexp.Compile'.
         # https://staticcheck.dev/docs/checks/#SA6000
+        #
+        # Использование regexp.Match многократно в цикле неэффективно
+        # следует до начала цикла скомпилировать значение с помощью regexp.Compile
+        # и далее использовать *regexp.Regexp в цикле
+        #
+        #
+        # const iterationsCount = 100
+        #
+        # data := make([]byte, 0)
+        #
+        #
+        # До
+        # for range iterationsCount {
+        # 	_, _ = regexp.Match("pattern", data)
+        # }
+        #
+        # После
+        # patternRe, err := regexp.Compile("pattern")
+        # if err != nil {
+        # 	panic(err)
+        # }
+        #
+        # for range iterationsCount {
+        # 	_ = patternRe.Match(data)
+        # }
+        #
+        #
+        # Если нам необходимо компилировать паттерн каждый раз заново
+        # например если мы итерируемся по массиву строк и используем значение итерации в regexp.Match
+        # линтер обработает такой случай и не будет реагировать
+        #
+        # data := make([]byte, 0)
+        #
+        # patterns := []string{"pattern1", "pattern2"}
+        #
+        # for _, pattern := range patterns { // всё в порядке, линтер молчит
+        # 	_, _ = regexp.Match(pattern, data)
+        # }
         - SA6000
 
         # Missing an optimization opportunity when indexing maps by byte slices.
         # https://staticcheck.dev/docs/checks/#SA6001
+        #
+        # В языке есть специальная оптимизация связанная с конвертацией слайса
+        # байт до строки при работе с мапой по строковому ключу
+        # разберем подробнее на примере
+        #
+        # storage := make(map[string]struct{})
+        #
+        # data := []byte{}
+        #
+        # key := string(data) // для этого ключа произойдёт конвертация и полное копирование байтов в новую строку
+        #
+        # _ = storage[key]
+        # _ = storage[key]
+        #
+        #
+        # _ = storage[string(data)] // в данном случае golang не делает конвертации и копирования данных
+        # _ = storage[string(data)] // это специальный случай оптимизации
+
         - SA6001
 
         # Storing non-pointer values in 'sync.Pool' allocates memory.
         # https://staticcheck.dev/docs/checks/#SA6002
+        #
+        # Хранение в sync.Pool значений без указателя вызывает аллокацию
+        # сводя на нет смысл использования sync.Pool, который призван снизить количество аллокаций
+        #
+        # pool := &sync.Pool{}
+        # _ = pool
+        #
+        # // аллоцирует 1024 байта и передаёт по значению
+        # pool.Put([1024]byte{})
+        #
+        # // передаёт по указателю, лишних аллокаций не происходит
+        # pool.Put(&[1024]byte{})
+        #
         - SA6002
 
         # Converting a string to a slice of runes before ranging over it.
         # https://staticcheck.dev/docs/checks/#SA6003
+        #
+        # Итерация по строке уже происходит по символам а не байтам
+        # поэтому конвертация до списка рун не требуется
+        # к тому же приводит к ненужному копированию
+        #
+        # name := "amidman"
+        #
+        # До
+        # for _, r := range []rune(name) {
+        # 	_ = r
+        # }
+        #
+        # После
+        # name := "amidman"
+        #
+        # for _, r := range name {
+        # 	_ = r
+        # }
+        #
         - SA6003
 
         # Inefficient string comparison with 'strings.ToLower' or 'strings.ToUpper'.
         # https://staticcheck.dev/docs/checks/#SA6005
+        #
+        # Вместо сравнения двух строк с приведением их символов
+        # к нижнему регистру можно использовать метод strings.EqualFold
+        #
+        # name1 := "amidman"
+        # name2 := "localhost"
+        #
+        # До
+        # if strings.ToLower(name1) == strings.ToLower(name2) {
+        # 	panic("inefficient")
+        # }
+        #
+        # После
+        # if strings.EqualFold(name1, name2) {
+        # 	panic("efficient")
+        # }
+        #
         - SA6005
 
         # Using io.WriteString to write '[]byte'.
         # https://staticcheck.dev/docs/checks/#SA6006
+        #
+        # Использование io.WriteString чтобы звписать []byte
+        #
+        # Конвертация из []byte в string приводит к нежелательной аллокации
+        #
+        #	w := new(bytes.Buffer)
+        # message := []byte("Hello World!")
+        #
+        # До
+        # _, _ = io.WriteString(w, string(message))
+        # После
+        # _, _ = w.Write(message)
+        #
         - SA6006
 
         # Defers in range loops may not run when you expect them to.
         # https://staticcheck.dev/docs/checks/#SA9001
-        - SA9001
+        #
+        # В случае итерации по каналам defer не будет вызван пока канал не будет закрыт
+        #
+        # var ch chan int
+        # for range ch {
+        # 	defer panic("Hello World")
+        # }
+        #
+        # Выглядит как отдельный случай revive.defer
+        #
+        # revive.defer выполняет ту же самую функцию
+        # Однако его функционал гораздо шире
+        #
+        # Выключаем
+        # - SA9001
 
         # Using a non-octal 'os.FileMode' that looks like it was meant to be in octal.
         # https://staticcheck.dev/docs/checks/#SA9002
+        #
+        # Для os.FileMode лучше использовать числа в восьмиричной системе счисления
+        #
+        # До
+        # _ = os.Mkdir("testdata", 777) // 777 = 01411, что приведёт к ошибке выполнения os.Mkdir
+        # После
+        # _ = os.Mkdir("testdata", 0o777) // теперь верно, 0o777 = os.ModePerm
+        #
         - SA9002
 
         # Empty body in an if or else branch.
         # https://staticcheck.dev/docs/checks/#SA9003
-        - SA9003
+        #
+        # Пустые блоки в if else бессмысленны
+        #
+        # if true {
+        # } else {
+        # }
+        #
+        # revive.empty-block выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - SA9003
 
         # Only the first constant has an explicit type.
         # https://staticcheck.dev/docs/checks/#SA9004
+        #
+        # Сообщает о случаях когда только первая константа в блоке имеет пометку о типе
+        #
+        # type Status string
+        #
+        # До
+        # const (
+        # 	StatusError   Status = "error"    // имеет тип Status
+        # 	StatusSuccess        = "success"  // имеет тип string
+        # )
+        #
+        # const (
+        # 	StatusError   Status = "error"   // имеет тип Status
+        # 	StatusSuccess Status = "success" // имеет тип Status
+        # )
+        #
         - SA9004
 
         # Trying to marshal a struct with no public fields nor custom marshaling.
         # https://staticcheck.dev/docs/checks/#SA9005
-        - SA9005
+        #
+        # Сообщает о попытках вызвать функции маршалинга
+        # на структурах без кастомного Marhal - метода
+        # и без публичных полей
+        #
+        # type Unmarshallable struct {
+        # 	noPublic string
+        # 	fields   string
+        # }
+        #
+        # data, err := json.Marshal(Unmarshallable{})
+        # if err != nil {
+        # 	panic(err)
+        # }
+        #
+        # println(string(data)) // выведет '{}'
+        #
+        # errchkjson выполняет ту же самую фукнцию
+        #
+        # Однако имеет более широкий фукнционал
+        #
+        # Выключаем
+        # - SA9005
 
         # Dubious bit shifting of a fixed size integer value.
         # https://staticcheck.dev/docs/checks/#SA9006
+        #
+        # Сообщает о сомнительных битовых операциях связанных со сдвигом
+        #
+        # smallInt := int8(1)
+        # smallInt >>= 8 // сдвиг восьмитового числа на 8 всегда даст 0
+        #
+        # println(smallInt) // выведет ноль, независимо от начального smallInt
         - SA9006
+
         # Deleting a directory that shouldn't be deleted.
         # https://staticcheck.dev/docs/checks/#SA9007
+        #
+        # Сообщает об удалении ряда директорий
+        # Проверяет следующие директории
+        #
+        # os.TempDir
+        # os.UserCacheDir
+        # os.UserConfigDir
+        # os.UserHomeDir
+        #
+        # Почти нет случаев где было бы корректно удалять эти директории
+        # вероятно этот код является следствием ошибки и должен быть исправлен
+        #
+        # dir := os.TempDir()
+        #
+        # _ = os.RemoveAll(dir)
+        #
         - SA9007
+
         # 'else' branch of a type assertion is probably not reading the right value.
         # https://staticcheck.dev/docs/checks/#SA9008
+        #
+        # В случае если мы делаем type-assertion в if else блоке
+        # и наше новая переменная затеняет старую
+        # то в else блоке будет переменная после type-assertion
+        # и будет иметь нулевое значение типа к которому мы пытались привести значение
+        #
+        # var anything any
+        #
+        # До
+        # if anything, ok := anything.(int); ok {
+        # 	panic("unexpected")
+        # } else {
+        # 	_ = anything // anything имеет тип int, в данном случае со значением равным 0
+        # }
+        #
+        # После
+        # var anything any
+        #
+        # if anythingInt, ok := anything.(int); ok {
+        # 	_ = anythingInt
+        #
+        # 	panic("unexpected")
+        # } else {
+        # 	_ = anything // anything имеет тип any
+        # }
+        #
         - SA9008
+
         # Ineffectual Go compiler directive.
         # https://staticcheck.dev/docs/checks/#SA9009
+        #
+        # Сообщает о неверно написанных директивах компилятора
+        #
+        # До
+        # // go:embed myfile.txt - допущена ошибка в виде пробела после //
+        # var fileData []byte
+        #
+        # После
+        # //go:embed myfile.txt - всё верно, на этапе компиляции переменной будет присвоено значение на этапе компиляции
+        # var fileData []byte
+        #
         - SA9009
 
         # https://staticcheck.dev/docs/checks/#ST1000
@@ -7143,6 +7500,16 @@ linters:
 
         # Poorly chosen identifier.
         # https://staticcheck.dev/docs/checks/#ST1003
+        #
+        # Проверка соблюдения принятых правил относительно названий
+        #
+        # package snake_case - не должен содержать заглавных букв, нижних подчеркирваний, кроме _test
+        #
+        # var snake_case int - должен быть snakeCase
+        # var SNAKE_CASE int - должен быть snakeCase
+        #
+        # func fn_7() - должен быть fn7 без нижних подчеркиваний
+        #
         - ST1003
 
         # Incorrectly formatted error string.
@@ -7163,30 +7530,193 @@ linters:
 
         # Poorly chosen receiver name.
         # https://staticcheck.dev/docs/checks/#ST1006
+        #
+        # Запрещает названия self, this, _ для названий структуры в методах расширениях
+        #
+        # type InvalidReceiver struct{}
+        #
+        # func (this InvalidReceiver) Hello() {}
+        # func (self InvalidReceiver) Bye()   {}
+        # func (_ InvalidReceiver) _()        {}
+        #
         - ST1006
+
         # A function's error value should be its last return value.
         # https://staticcheck.dev/docs/checks/#ST1008
+        #
+        # Если фукнция возвращает error то этот аргумент должен идти последним
+        #
+        # До
+        # func fn1() (error, int) { return nil, 0 }
+        #
+        # После
+        # func fn1() (int, error) { return 0, nil }
+        #
+        #
+        # в отличие от revive.error-return обрабатывает и не реагирует на следующий случай
+        #
+        # func fn1() (error, bool) { return nil, true }
+        #
+        # Это может быть полезно для случаев когда мы используем ok pattern
+        #
+        # err, ok := fn1()
+        #
         - ST1008
+
         # Poorly chosen name for variable of type 'time.Duration'.
         # https://staticcheck.dev/docs/checks/#ST1011
-        - ST1011
+        #
+        # В именах переменных типа time.Duration не следует использовать суффиксы
+        # обозначающие период времени
+        #
+        # const durationSeconds = 5 * time.Second
+        #
+        # revive.time-naming выполняет ту же самую фукнцию
+        #
+        # Однако обрабатывает больше случаев, например
+        #
+        # const durationMinutes = 5 * time.Second
+        #
+        # revive.time-naming сообщит о нарушении
+        # staticcheck.ST1011 промолчит
+        #
+        # Выключаем
+        # - ST1011
+
         # Poorly chosen name for error variable.
         # https://staticcheck.dev/docs/checks/#ST1012
+        #
+        # Названия глобальных переменных с типом error должны начинаться с err или Err
+        #
+        # До
+        # var canceled = errors.New("canceled")
+        # После
+        # var errCanceled = errors.New("canceled")
+        #
+        # errname выполняет ту же самую функцию
+        #
+        # в отличие от errname распространяется и на не экспортируемые переменные
+        #
+        # это приводит к дублям однако дополняет недостаток errname
         - ST1012
+
         # Should use constants for HTTP error codes, not magic numbers.
         # https://staticcheck.dev/docs/checks/#ST1013
+        #
+        # http.Error(nil, "", 506)         //@ diag(`http.StatusVariantAlsoNegotiates`)
+        # http.Redirect(nil, nil, "", 506) //@ diag(`http.StatusVariantAlsoNegotiates`)
+        # http.StatusText(506)             //@ diag(`http.StatusVariantAlsoNegotiates`)
+        # http.RedirectHandler("", 506)    //@ diag(`http.StatusVariantAlsoNegotiates`)
+        #
+        # usestdlibvars выполняет ту же самую функцию
+        #
+        # Однако функционал гораздо шире и выходит за пределы http.StatusCode
+        #
         - ST1013
+
         # A switch's default case should be the first or last case.
         # https://staticcheck.dev/docs/checks/#ST1015
-        - ST1015
+        #
+        # Запрещает вставлять default в switch куда либо кроме начала или конца
+        #
+        # Плохо
+        # switch {
+        # 	case true:
+        # 	default:
+        # 	case false:
+        # }
+        #
+        # Хорошо
+        # switch {
+        # default:
+        # case true:
+        # case false:
+        # }
+        #
+        # Хорошо
+        # switch {
+        # case true:
+        # case false:
+        # default:
+        # }
+        #
+        # меня не устраивает что он позволяет делать default первой по порядку
+        #
+        # revive.enforce-switch-style выполняет ту же функцию
+        # Однако он позволяет ставить default только последним
+        # и проверяет наличие default ветки в каждом switch case
+        #
+        # Выключаем
+        # - ST1015
+
         # Use consistent method receiver names.
         # https://staticcheck.dev/docs/checks/#ST1016
+        #
+        # Сообщает об различных именах в названии переменной структуры в методе расширения
+        #
+        # type Unconsistent struct{}
+        #
+        # До
+        #
+        # // Разное название
+        # func (u Unconsistent) Hello() {} // название u
+        # func (un Unconsistent) Bye()  {} // название un
+        #
+        # func (Unconsistent) Unchecked() {} // нет названия, на подобный случай проверка не распространяется
+        #
+        # После
+        #
+        # // Одинаковое название
+        # func (u Unconsistent) Hello() {} // название u
+        # func (u Unconsistent) Bye()  {}  // название u
+        #
+        # func (Unconsistent) Unchecked() {} // нет названия, на подобный случай проверка не распространяется
         - ST1016
+
         # Don't use Yoda conditions.
         # https://staticcheck.dev/docs/checks/#ST1017
-        - ST1017
+        #
+        # Обнаруживает Yoda style выражения и предлагает заменить на обычные
+        # При сравнении переменной с константой сначала идёт переменная и только потом константа
+        #
+        # До
+        # return nil != ptr
+        #
+        # После
+        # return ptr != nil
+        #
+        # gocritic.yodaStyleExpr выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - ST1017
+
         # Avoid zero-width and control characters in string literals.
         # https://staticcheck.dev/docs/checks/#ST1018
+        #
+        # Запрещает наличие в строковых литералах невидимых символов
+        #
+        # Control символы (управляющие символы) - это специальные символы
+        # которые не отображаются как обычный текст, а используются для
+        # управления устройствами или форматированием.
+        # Они происходят из стандарта ASCII и имеют коды от 0 до 31 и 127.
+        #
+        #
+        # // Выглядит как обычная строка, но содержит zero-width space
+        # username := "admin​user" // U+200B между admin и user
+        #
+        # // Визуально не отличимо от "adminuser"
+        # fmt.Printf("Username: %s\n", username)
+        #
+        # // Проверка длины покажет разницу
+        # normal := "adminuser"
+        # fmt.Printf("Normal length: %d\n", len(normal))    // 8
+        # fmt.Printf("Special length: %d\n", len(username)) // 12
+        #
+        # // Проблемы при сравнении
+        # if username == "adminuser" {
+        # 	fmt.Println("Match") // Не выполнится!
+        # }
+        #
         - ST1018
 
         # Importing the same package multiple times.
@@ -7207,14 +7737,50 @@ linters:
 
         # The documentation of an exported function should start with the function's name.
         # https://staticcheck.dev/docs/checks/#ST1020
+        #
+        # Комментарий экспортируемой фукнции должен начинаться с названия функции
+        #
+        # До
+        # // Say Hello
+        # func Hello() {}
+        #
+        # После
+        # // Hello Say Hello
+        # func Hello() {}
+        #
+        #
+        # Обрабатывает тестовые функции
+        # // Tests the Fun
+        # func Test_Fun(t *testing.T) {}
+        #
         - ST1020
 
         # The documentation of an exported type should start with type's name.
         # https://staticcheck.dev/docs/checks/#ST1021
+        #
+        # Комментарий экспортируемого типа должен начинаться с названия этого типа
+        #
+        # До
+        # // For something
+        # type Exported struct{}
+        #
+        # После
+        # // Exported For something
+        # type Exported struct{}
         - ST1021
 
         # The documentation of an exported variable or constant should start with variable's name.
         # https://staticcheck.dev/docs/checks/#ST1022
+        #
+        # Комментарий экспортируемой глобальной переменной или константы должен начинаться с её названия
+        #
+        # До
+        # // is public variable
+        # var Public string
+        #
+        # После
+        # // Public is public variable
+        # var Public string
         - ST1022
 
         # Redundant type in variable declaration.
@@ -7231,78 +7797,337 @@ linters:
 
         # Use plain channel send or receive instead of single-case select.
         # https://staticcheck.dev/docs/checks/#S1000
+        #
+        # select с одним case бессмысленен
+        #
+        # ch := make(chan int)
+        #
+        # До
+        # select {
+        # case value := <-ch:
+        # 	_ = value
+        # }
+        #
+        # После
+        # value := <-ch
+        # _ = value
+        #
         - S1000
 
         # Replace for loop with call to copy.
         # https://staticcheck.dev/docs/checks/#S1001
+        #
+        # Для копирования одного []Type в другой следуюет использовать copy(dst, src)
+        #
+        # src := make([]byte, 0)
+        #
+        # dst := make([]byte, len(src))
+        #
+        # До
+        # for i := range src {
+        # 	dst[i] = src[i]
+        # }
+        #
+        # После
+        # copy(dst, src)
+        #
         - S1001
 
         # Omit comparison with boolean constant.
         # https://staticcheck.dev/docs/checks/#S1002
-        - S1002
+        #
+        # Обнаруживает участки кода где условие сравнивается с true или false
+        #
+        # До
+        # if condition == true {
+        # 	log.Println("Hello World!")
+        # }
+        #
+        # После
+        # if condition {
+        #   log.Println("Hello World!")
+        # }
+        #
+        # revive.bool-literal-in-expr выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - S1002
 
         # Replace call to 'strings.Index' with 'strings.Contains'.
         # https://staticcheck.dev/docs/checks/#S1003
+        #
+        # Сообщает о вызове strings.Index с целью проверки на включение строки подстроки
+        #
+        # name := "amidman"
+        #
+        # До
+        # if strings.Index(name, "man") == -1 {
+        # 	panic("you should use strings.Contains")
+        # }
+        #
+        # После
+        # if !strings.Contains(name, "man") {
+        # 	panic("you right")
+        # }
+        #
         - S1003
 
         # Replace call to 'bytes.Compare' with 'bytes.Equal'.
         # https://staticcheck.dev/docs/checks/#S1004
+        #
+        # Для сравнения двух []byte необходимо использовать bytes.Equal
+        # а не сравнивать результат bytes.Compare с 0
+        #
+        # data1, data2 := make([]byte, 0), make([]byte, 0)
+        #
+        # До
+        # if bytes.Compare(data1, data2) == 0 {
+        # 	panic("should use bytes.Equal")
+        # }
+        #
+        # После
+        # if bytes.Equal(data1, data2) {
+        # 	panic("good")
+        # }
+        #
         - S1004
 
         # Drop unnecessary use of the blank identifier.
         # https://staticcheck.dev/docs/checks/#S1005
+        #
+        # Сообщает о случаях когда пустой идентификатор _ может быть опущен
+        #
+        # storage := make(map[int]struct{})
+        #
+        # До
+        # v, _ := storage[0]
+        #
+        # После
+        # v := storage[0]
+        #
         - S1005
 
         # Use "for { ... }" for infinite loops.
         # https://staticcheck.dev/docs/checks/#S1006
+        #
+        # Для бесконечных циклов следует использовать for { ... }
+        #
+        # for true {	} // Неправильно
+        # for {}        // Правильно
+        #
         - S1006
 
         # Simplify regular expression by using raw string literal.
         # https://staticcheck.dev/docs/checks/#S1007
+        #
+        # Регулярные выражения могут быть упрощены с использованием '`'
+        #
+        # До
+        # _, _ = regexp.Compile("\\A(\\w+) profile: total \\d+\\n\\z")
+        #
+        # После
+        # _, _ = regexp.Compile(`\A(\w+) profile: total \d+\n\z`)
+        #
         - S1007
 
         # Simplify returning boolean expression.
         # https://staticcheck.dev/docs/checks/#S1008
+        #
+        # Упрощает возврат булевы выражения
+        #
+        # condition := 10%2 == 0
+        #
+        # До
+        # if condition {
+        # 	return true
+        # }
+        #
+        # return false
+        #
+        # После
+        #
+        # return condition
+        #
         - S1008
 
         # Omit redundant nil check on slices, maps, and channels.
         # https://staticcheck.dev/docs/checks/#S1009
+        #
+        # Сообщает о необходимости опускать проверку map, slice, chan на nil при условии проверки на длину
+        # у подобных типов len(nil) == 0
+        #
+        #	var slice []byte
+        #
+        # До
+        # if slice != nil && len(slice) != 0 {
+        # 	panic("nil slice")
+        # }
+        #
+        # После
+        # if len(slice) != 0 {
+        #   panic("empty slice")
+        # }
+        #
         - S1009
 
         # Omit default slice index.
         # https://staticcheck.dev/docs/checks/#S1010
+        #
+        # slice[:len(slices)] равен slice[:]
+        #
+        # var slice []byte
+        #
+        # До
+        # _ = slice[0:len(slice)]
+        #
+        # После
+        # _ = slice[0:]
+        #
         - S1010
 
         # Use a single 'append' to concatenate two slices.
         # https://staticcheck.dev/docs/checks/#S1011
+        #
+        # Конкатенация двух []Type может быть заменена на один append
+        #
+        # src := make([]byte, 0)
+        # dst := make([]byte, 0)
+        #
+        # До
+        # for i := range src {
+        # 	dst = append(dst, src[i])
+        # }
+        #
+        # После
+        # dst = append(dst, src...)
+        #
         - S1011
 
         # Replace 'time.Now().Sub(x)' with 'time.Since(x)'.
         # https://staticcheck.dev/docs/checks/#S1012
+        # time.Now().Sub(x) должно быть заменено на time.Since(x)
+        #
+        # hourAgo := time.Now().Add(-time.Hour)
+        #
+        # До
+        # _ = time.Now().Sub(hourAgo)
+        #
+        # После
+        # _ = time.Since(hourAgo)
+        #
         - S1012
 
         # Use a type conversion instead of manually copying struct fields.
         # https://staticcheck.dev/docs/checks/#S1016
+        #
+        # Структуры с идентичными полями могут быть конвертированы напрямую
+        #
+        # type Original struct {
+        # 	Name string
+        # }
+        #
+        # type Another struct {
+        # 	Name string
+        # }
+        #
+        # var original Original
+        #
+        # До
+        # _ = Another{
+        # 	Name: original.Name,
+        # }
+        #
+        # После
+        # _ = Another(original)
+        #
         - S1016
 
         # Replace manual trimming with 'strings.TrimPrefix'.
         # https://staticcheck.dev/docs/checks/#S1017
+        #
+        # Обнаруживает ручное "обрезание" строк
+        #
+        # name := "amidman"
+        # prefix := "amid"
+        #
+        # До
+        # if strings.HasPrefix(name, prefix) {
+        # 	name = name[len(prefix):]
+        # }
+        #
+        # После
+        #
+        # name = strings.TrimPrefix(name, prefix)
+        #
         - S1017
 
         # Use "copy" for sliding elements.
         # https://staticcheck.dev/docs/checks/#S1018
+        #
+        # Копирование в рамках одного и того же списка можно заменить с цикла на copy
+        #
+        # const offset = 5
+        #
+        # bs := []byte("eman name")
+        #
+        # До
+        # for i := range len("name") {
+        # 	bs[i] = bs[offset+i]
+        # }
+        #
+        # После
+        # copy(bs[:len("name")], bs[offset:])
+        #
+        # println(string(bs)) // выведет "name naem"
+        #
         - S1018
 
         # Simplify "make" call by omitting redundant arguments.
         # https://staticcheck.dev/docs/checks/#S1019
+        #
+        # Следует упрощать make вызовы где это возможно
+        #
+        # До
+        # _ = make([]byte, 0, 0) // capacity является необязательным параметром, передавать 0 бессмысленно
+        # После
+        # _ = make([]byte, 0)
+        #
         - S1019
 
         # Omit redundant nil check in type assertion.
         # https://staticcheck.dev/docs/checks/#S1020
+        #
+        # Если интерфейс может быть приведен к какому либо типу он не может быть равен nil
+        #
+        # anything := getAny()
+        #
+        # До
+        # if _, ok := anything.(*int); ok && anything != nil {
+        # 	panic("can be simplier")
+        # }
+        #
+        # После
+        #
+        # anything := getAny()
+        #
+        # if _, ok := anything.(*int); ok {
+        # 	panic("simple")
+        # }
+        #
         - S1020
 
         # Merge variable declaration and assignment.
         # https://staticcheck.dev/docs/checks/#S1021
+        #
+        # Сообщает о раздельных блоках объявления и немедленного присвоения значений переменных
+        #
+        # До
+        # var x int
+        # x = 1
+        #
+        # После
+        # x := 1
+        #
         - S1021
 
         # Omit redundant control flow.
@@ -7334,11 +8159,35 @@ linters:
 
         # Replace 'x.Sub(time.Now())' with 'time.Until(x)'.
         # https://staticcheck.dev/docs/checks/#S1024
+        #
+        # Следует использовать time.Until вместо time.Time.Sub(time.Now())
+        #
+        # hourLater := time.Now().Add(time.Hour)
+        #
+        # До
+        # _ = hourLater.Sub(time.Now())
+        #
+        # После
+        # _ = time.Until(hourLater)
+        #
         - S1024
 
         # Don't use 'fmt.Sprintf("%s", x)' unnecessarily.
         # https://staticcheck.dev/docs/checks/#S1025
-        - S1025
+        #
+        # Является переключателем для линтеров sprint1 и strconcat
+        # Без него линтеры работать не будут
+        # До
+        # _ = fmt.Sprint("format")
+        # После
+        # _ = "format"
+        #
+        # gocritic.redundantSprint выполняет ту же самую фукнцию
+        #
+        # Однако распространяется и на fmt.Stringer
+        #
+        # Выключаем
+        # - S1025
 
         # Simplify error construction with 'fmt.Errorf'.
         # https://staticcheck.dev/docs/checks/#S1028
@@ -7355,44 +8204,285 @@ linters:
 
         # Range over the string directly.
         # https://staticcheck.dev/docs/checks/#S1029
-        - S1029
+        #
+        # Итерация по строке уже происходит по символам а не байтам
+        # поэтому конвертация до списка рун не требуется
+        # к тому же приводит к ненужному копированию
+        #
+        # name := "amidman"
+        #
+        # До
+        # for _, r := range []rune(name) {
+        # 	_ = r
+        # }
+        #
+        # После
+        # name := "amidman"
+        #
+        # for _, r := range name {
+        # 	_ = r
+        # }
+        #
+        # staticcheck.SA6003 выполняет ту же самую фукнцию
+        #
+        # Выключаем
+        # - S1029
+
         # Use 'bytes.Buffer.String' or 'bytes.Buffer.Bytes'.
         # https://staticcheck.dev/docs/checks/#S1030
+        #
+        # Сообщает об конвертации результата bytes.Buffer.String в []byte
+        # Сообщает об конвертации результата bytes.Buffer.Bytes  в string
+        #
+        #
+        # buf := new(bytes.Buffer)
+        #
+        # До
+        # _ = []byte(buf.String())
+        # _ = string(buf.Bytes())
+        #
+        # После
+        # _ = buf.Bytes()
+        # _ = buf.String()
+        #
         - S1030
+
         # Omit redundant nil check around loop.
         # https://staticcheck.dev/docs/checks/#S1031
+        #
+        # Проверка на nil для итерации по map и slice бессмысленна
+        # если slice или map == nil итерация даже не будет начата
+        #
+        # var (
+        # 	nilSlice []byte
+        # 	nilMap   map[int]int
+        # )
+        #
+        # До
+        # if nilSlice != nil {
+        # 	for range nilSlice {
+        # 		panic("redundant")
+        # 	}
+        # }
+        #
+        # if nilMap != nil {
+        # 	for range nilMap {
+        # 		panic("redundant")
+        # 	}
+        # }
+        #
+        # После
+        # for range nilSlice {
+        # 	panic("ok")
+        # }
+        #
+        # for range nilMap {
+        # 	panic("ok")
+        # }
+        #
         - S1031
+
         # Use 'sort.Ints(x)', 'sort.Float64s(x)', and 'sort.Strings(x)'.
         # https://staticcheck.dev/docs/checks/#S1032
+        #
+        # Используйте sort.Ints(x) вместо sort.Sort(sort.IntSlice(x))
+        #
+        # intSlice := []int{1, 3, 2}
+        # До
+        # sort.Sort(sort.IntSlice(intSlice))
+        #
+        # После
+        # sort.Ints(intSlice)
+        #
+        # Распространяется на sort.Float64s, sort.Strings
+        #
         - S1032
+
         # Unnecessary guard around call to "delete".
         # https://staticcheck.dev/docs/checks/#S1033
+        #
+        # Перед удалением ключа из map не нужно проверять его на наличие в map
+        #
+        # var nilMap map[int]int
+        #
+        # До
+        # if _, ok := nilMap[0]; ok {
+        # 	delete(nilMap, 0)
+        # }
+        #
+        # После
+        #	delete(nilMap, 0)
+        #
         - S1033
 
         # Use result of type assertion to simplify cases.
         # https://staticcheck.dev/docs/checks/#S1034
-        # - S1034
+        # Обнаруживает переключатели типа, которые могут извлечь выгоду из предложения защиты типа с переменной
+        # staticcheck.S1034 выполняет ту же самую функцию
+        #
+        # var reader io.Reader
+        #
+        # До
+        # switch reader.(type) {
+        # case *bytes.Buffer: // reader всё ещё имеет тип io.Reader, необходимо дополнительно кастить тип
+        # 	_, ok := reader.(*bytes.Buffer)
+        # 	_ = ok
+        # case *strings.Reader: // reader всё ещё имеет тип io.Reader, необходимо дополнительно кастить тип
+        # 	_, ok := reader.(*strings.Reader)
+        # 	_ = ok
+        # }
+        #
+        # После
+        # switch reader := reader.(type) {
+        # case *bytes.Buffer:
+        # 	var _ *bytes.Buffer = reader // reader имеет тип *bytes.Buffer
+        # case *strings.Reader:
+        # 	var _ *strings.Reader = reader // reader имеет тип *strings.Reader
+        # }
+        #
+        - S1034
 
         # Redundant call to 'net/http.CanonicalHeaderKey' in method call on 'net/http.Header'.
         # https://staticcheck.dev/docs/checks/#S1035
+        #
+        # Нет никакой необходимости передавать в функции
+        # http.Header.Add
+        # http.Header.Get
+        # http.Header.Set
+        # http.Header.Del
+        #
+        # Значения фукнции http.CanonicalHeaderKey, метод в любом случае вызовет
+        # функцию преобразования ключа внутри себя
+        #
+        # const (
+        # 	key   = "X-Key"
+        # 	value = "value"
+        # )
+        #
+        # header := make(http.Header)
+        #
+        # До
+        # _ = header.Get(http.CanonicalHeaderKey(key))
+        #
+        # header.Add(http.CanonicalHeaderKey(key), value)
+        # header.Set(http.CanonicalHeaderKey(key), value)
+        # header.Add(http.CanonicalHeaderKey(key), value)
+        #
+        # После
+        # _ = header.Get(key)
+        #
+        # header.Add(key, value)
+        # header.Set(key, value)
+        # header.Add(key, value)
         - S1035
+
         # Unnecessary guard around map access.
         # https://staticcheck.dev/docs/checks/#S1036
+        #
+        # Ненужные проверки на наличие ключа в map которых можно избежать
+        #
+        #
+        # const key = "key"
+        #
+        # mapOfSlices := make(map[string][]int)
+        #
+        # До
+        # if _, ok := mapOfSlices[key]; ok {
+        # 	mapOfSlices[key] = append(mapOfSlices[key], 0)
+        # } else {
+        # 	mapOfSlices[key] = []int{0}
+        # }
+        #
+        # После
+        # mapOfSlices[key] = append(mapOfSlices[key], 0)
+        #
+        # mapOfInts := make(map[string]int)
+        #
+        # До
+        # if _, ok := mapOfInts[key]; ok {
+        # 	mapOfInts[key] += 1
+        # } else {
+        # 	mapOfInts[key] = 1
+        # }
+        #
+        # После
+        # mapOfInts[key] += 1
+        #
         - S1036
+
         # Elaborate way of sleeping.
         # https://staticcheck.dev/docs/checks/#S1037
-        - S1037
+        #
+        # Усложненный способ уснуть
+        #
+        # Сообщает об одинарных select где аргументом является <-time.After
+        #
+        # select {
+        # case <-time.After(time.Second):
+        # }
+        #
+        # Выглядит как специфический случай S1000 только специально для <-time.After
+        #
+        # staticcheck.S1000 выполняет ту же самую фукнцию
+        # Однако работает на любые select с одной веткой
+        #
+        # Выключаем
+        # - S1037
+
         # Unnecessarily complex way of printing formatted string.
         # https://staticcheck.dev/docs/checks/#S1038
+        #
+        # Предлагает заменить fmt.Print(fmt.Sprintf(...)) на fmt.Printf
+        #
+        # До
+        # fmt.Print(fmt.Sprintf("Hello %d\n", 0))
+        #
+        # После
+        # fmt.Printf("Hello %d\n", 0)
+        #
         - S1038
 
         # Unnecessary use of 'fmt.Sprint'.
         # https://staticcheck.dev/docs/checks/#S1039
+        #
+        # Использование fmt.Sprint(string) равносильно string
+        #
+        # До
+        # _ = fmt.Sprint("format")
+        # После
+        # _ = "format"
+        #
+        # gocritic.redundantSprint выполняет ту же самую фукнцию
+        #
+        # Однако распространяется и на fmt.Stringer
+        #
+        # Выключаем
         # - S1039
 
         # Type assertion to current type.
         # https://staticcheck.dev/docs/checks/#S1040
-        # - S1040
+        #
+        #
+        # Каст итерфейса к типу которым он уже является
+        #
+        # var r io.Reader
+        #
+        # _, _ = r.(io.Reader) // r уже io.Reader в этом type-assertion нет смысла
+        #
+        # Исключением ялвяется когда io.Reader равняется nil
+        #
+        # r := io.Reader(nil)
+        #
+        # _, ok := r.(io.Reader)
+        # println(ok) // выведет false потому что r == nil
+        #
+        #
+        # var r io.Reader = (*os.File)(nil)
+        #
+        # _, ok := r.(io.Reader)
+        # println(ok) // выведет true, потому что под io.Reader скрывается тип *os.File пусть он и не на что не ссылается
+        #
+        - S1040
 
         # Apply De Morgan's law.
         # https://staticcheck.dev/docs/checks/#QF1001
