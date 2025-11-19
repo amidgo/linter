@@ -849,21 +849,176 @@ linters:
     #
     # Проверяет теги, имеет гибкую настройку
     #
-    # revive.struct-tag выполняет ту же самую фукнцию
+    # revive.struct-tag выполняет ту же самую фукнцию валидации тегов
     #
     # Однако проверяет правила публичных полей
+    # есть опции для сортировки тегов
+    #
+    # golines выполняет ту же самую фукнцию форматирования тегов
     #
     # Выключаем
     # - tagalign
 
+    # https://golangci-lint.run/docs/linters/configuration/#tagliatelle
+    # https://github.com/ldez/tagliatelle
+    #
+    # Добавляет правила валидации имен тегов
+    - tagliatelle
+
+    # https://golangci-lint.run/docs/linters/configuration/#testableexamples
+    # https://github.com/maratori/testableexamples
+    #
+    # Проверяет что func Example_foo() имеют "// Output:" комментарий для проверки выходных данных
+    #
+    #
+    # func foo() {
+    # 	_, _ = fmt.Fprintf(os.Stdout, "Hello %s!\n", "World")
+    # }
+    #
+    # До
+    #
+    # func Example_foo() {
+    # 	foo()
+    # } // такой пример не будет запущен в go test . и не будет считаться примером, в go test -list . тоже не отпечатается
+    #
+    # После
+    #
+    # func Example_foo() {
+    # 	foo()
+    # 	// Output: Hello World!
+    # } // данный пример будет запущен и сверит данные в stdout с Hello World!, в случае несовпадения напишет ошибку
+    #
+    - testableexamples
+
+    # https://golangci-lint.run/docs/linters/configuration/#testifylint
+    # https://github.com/Antonboom/testifylint
+    #
+    # Содержит набор правил для пакета testify
+    # https://github.com/stretchr/testify
+    #
+    # Агрессивный auto-fix, будьте осторожны
     - testifylint
 
+    # https://golangci-lint.run/docs/linters/configuration/#testpackage
+    # https://github.com/maratori/testpackage
+    #
+    # Проверяет что тестовый пакет имеет суффикс _test
+    #
+    # Выключаем
+    # - testpackage
+
+    # https://golangci-lint.run/docs/linters/configuration/#thelper
+    # https://github.com/kulti/thelper
+    #
+    # Проверяет наличие t.Helper() в функциях куда передаётся *testing.T, *testing.B, testing.TB, *testing.F
+    - thelper
+
+    # https://golangci-lint.run/docs/linters/configuration/#tparallel
+    # https://github.com/moricho/tparallel
+    #
+    # Валидирует использование *testing.T.Parallel
+    #
+    # Если тест параллелен то его саб-тесты тоже должны быть параллельными
+    #
+    # До
+    # func Test_foo(t *testing.T) {
+    # 	t.Parallel()
+    #
+    # 	t.Run("single", func(t *testing.T) {})
+    # 	t.Run("two", func(t *testing.T) {})
+    # }
+    #
+    # После
+    # func Test_foo(t *testing.T) {
+    # 	t.Parallel()
+    #
+    # 	t.Run("single", func(t *testing.T) { t.Parallel() })
+    # 	t.Run("two", func(t *testing.T) { t.Parallel() })
+    # }
+    #
+    # И наоборот
+    # Если саб-тесты вызывают t.Parallel основной также должен вызывать t.Parallel
+    #
+    # func Test_Func1(t *testing.T) { // want "Test_Func1 should call t.Parallel on the top level as well as its subtests"
+    # 	teardown := setup("Test_Func1")
+    # 	t.Cleanup(teardown)
+    #
+    # 	t.Run("Func1_Sub1", func(t *testing.T) {
+    # 		call("Func1_Sub1")
+    # 		t.Parallel()
+    # 	})
+    #
+    # 	t.Run("Func1_Sub2", func(t *testing.T) {
+    # 		call("Func1_Sub2")
+    # 		t.Parallel()
+    # 	})
+    # }
+    - tparallel
+
+    # https://golangci-lint.run/docs/linters/configuration/#unconvert
+    # https://github.com/mdempsky/unconvert
+    #
+    # Указывает на бесполезные преобразования
+    #
+    # func getInt() int {
+    # 	var res int
+    #
+    # 	return int(res) // в данном преобразовании нет смысла
+    # }
     - unconvert
 
+    # https://golangci-lint.run/docs/linters/configuration/#unparam
+    # https://github.com/mvdan/unparam
+    #
+    # Несет в себе широкий спектр проверки неиспользуемых параметров и их значений
+    #
+    # func doSomething(a int, b string) int {
+    # 	if b == "constant" {
+    # 		return a
+    # 	}
+    #
+    # 	return 0
+    # }
+    #
+    # // Вызовы всегда с b = "constant"
+    # // Результирующее значение никогда не используется
+    #
+    # func main() {
+    # 	_ = doSomething(10, "constant")
+    # 	_ = doSomething(5, "constant")
+    # }
+    #
+    # Имеет настройку для проверки публичных функций
+    # Следует отключить для IDE по скольку там линтер может запускатья лишь в рамках одной директории
+    # Что может генерировать false positive
+    #
     - unparam
 
+    # https://golangci-lint.run/docs/linters/configuration/#unparam
+    # https://github.com/mvdan/unparam
+    #
+    # Проверяет наличие SELECT * (паттерны настраиваются) в строках и функциях базы данных
+    #
+    # func main() {
+    # 	db := new(sql.DB)
+    #
+    # 	_, _ = db.ExecContext(context.Background(), "SELECT * FROM table") // проверяет вызовы с SELECT *
+    # 	_ = "SELECT * FROM TABLE"                                          // проверяет строки c SELECT *
+    # 	_ = squirrel.Select("*").From("table")                             // если включен check-sql-builder
+    # }
+    - unqueryvet
+
+    # https://golangci-lint.run/docs/linters/configuration/#unused
+    # https://github.com/dominikh/go-tools/tree/HEAD/unused
+    #
+    # Сообщает о неиспользуемом коде (поля, параметры, переменные, типы)
     - unused
 
+    # https://github.com/dominikh/go-tools/tree/HEAD/unused
+    # https://github.com/sashamelentyev/usestdlibvars
+    #
+    # Сообщает о использовании значений которые могут быть заменены
+    # на константы стандартной библиотеки
     - usestdlibvars
 
     - varnamelen
@@ -970,10 +1125,13 @@ linters:
     forbidigo:
       forbid:
         - pattern: ^(fmt.Print(|f|ln)|print|println)$
-          msg: "direct output to stdout is forbidden"
+          msg: direct output to stdout is forbidden
 
         - pattern: uuid.Nil
-          msg: "prefer use uuid.UUID{} as zero value, because uuid.Nil is global variable and can be reassigned"
+          msg: prefer use uuid.UUID{} as zero value, because uuid.Nil is global variable and can be reassigned
+
+        - pattern: sql.LevelDefault
+          msg: use concrete isolation level, not default
 
         - pattern: runtime.SetFinalizer
           msg: use runtime.AddCleaup modern and safer implementation
@@ -5766,8 +5924,13 @@ linters:
         # }
         #
         # return nil
-        - record-error
-        - set-status
+        #
+        # Записывать ошибку в спан может быть не всегда необходимо
+        # возможно вы желаете записывать ошибку лишь один раз на самом верхнем уровне
+        # Выключаем
+        #
+        # - record-error
+        # - set-status
 
       # A list of regexes for function signatures that silence `record-error` and `set-status` reports
       # if found in the call path to a returned error.
@@ -5851,31 +6014,6 @@ linters:
       extra-start-span-signatures: []
         # - "github.com/amidgo/linter/observability.StartSpan:opentelemetry"
         # - "github.com/user/repo/telemetry/trace.Start:opentelemetry"
-
-    varnamelen:
-      # Описывает названия переменных с их типами которые мы предпочли бы игнорировать
-      ignore-decls:
-        - wg sync.WaitGroup
-        - wg *sync.WaitGroup
-        - r *http.Request
-        - w http.ResponseWriter
-        - w io.Writer
-        - r io.Reader
-
-      ignore-names:
-        - err
-        - ok
-        - db
-
-      # Проверять ли поля структур
-      check-type-param: true
-
-      # func (s Service) foo() // s слишком малое название
-      # Выключаем
-      check-receiver: false
-
-      # Проверка именованых return значений
-      check-return: true
 
     staticcheck:
       # список кодов которые будут исключены из проверки ST1013
@@ -8706,6 +8844,1074 @@ linters:
         # Выключаем
         # - QF1012
 
+    tagalign:
+      # Align and sort can be used together or separately.
+      #
+      # Whether enable align. If true, the struct tags will be aligned.
+      # E.g.:
+      # type FooBar struct {
+      #     Bar    string `json:"bar" validate:"required"`
+      #     FooFoo int8   `json:"foo_foo" validate:"required"`
+      # }
+      # will be formatted to:
+      # type FooBar struct {
+      #     Bar    string `json:"bar"     validate:"required"`
+      #     FooFoo int8   `json:"foo_foo" validate:"required"`
+      # }
+      # Default: true.
+      align: true
+
+      # Whether enable tags sort.
+      # If true, the tags will be sorted by name in ascending order.
+      # E.g.: `xml:"bar" json:"bar" validate:"required"` -> `json:"bar" validate:"required" xml:"bar"`.
+      # Default: true
+      sort: true
+
+      # Specify the order of tags, the other tags will be sorted by name.
+      # This option will be ignored if `sort` is false.
+      # Default: []
+      order:
+        - json
+        - yaml
+        - yml
+        - toml
+        - mapstructure
+        - binding
+        - validate
+
+      # Whether enable strict style.
+      # In this style, the tags will be sorted and aligned in the dictionary order,
+      # and the tags with the same name will be aligned together.
+      # Note: This option will be ignored if 'align' or 'sort' is false.
+      # Default: false
+      strict: false
+
+    tagliatelle:
+      # Checks the struct tag name case.
+      case:
+        # Defines the association between tag name and case.
+        # Any struct tag name can be used.
+        # Supported string cases:
+        # - `camel`
+        # - `pascal`
+        # - `kebab`
+        # - `snake`
+        # - `upperSnake`
+        # - `goCamel`
+        # - `goPascal`
+        # - `goKebab`
+        # - `goSnake`
+        # - `upper`
+        # - `lower`
+        # - `header`
+        rules:
+          json: snake
+          yaml: snake
+          xml: snake
+          toml: snake
+          bson: snake
+          avro: snake
+          mapstructure: snake
+
+          env: upperSnake
+          envconfig: upperSnake
+
+          # позволяет настроить любой свой тег
+          # my_personal_tag: snake
+
+        # Defines the association between tag name and case.
+        # Important: the `extended-rules` overrides `rules`.
+        # Default: empty
+        # extended-rules:
+        # json:
+        # Supported string cases:
+        # - `camel`
+        # - `pascal`
+        # - `kebab`
+        # - `snake`
+        # - `upperSnake`
+        # - `goCamel`
+        # - `goPascal`
+        # - `goKebab`
+        # - `goSnake`
+        # - `header`
+        # - `lower`
+        # - `header`
+        #
+        # Required
+        # case: snake
+        # Adds 'AMQP', 'DB', 'GID', 'RTP', 'SIP', 'TS' to initialisms,
+        # and removes 'LHS', 'RHS' from initialisms.
+        # Default: false
+        # extra-initialisms: true
+        # Defines initialism additions and overrides.
+        # Default: empty
+        # initialism-overrides:
+        # DB: true # add a new initialism
+        # LHS: false # disable a default initialism.
+        # ...
+
+        # Uses the struct field name to check the name of the struct tag.
+        # Default: false
+        #
+        # Флаг использования названия поля при проверке тегов
+        #
+        # type Tagged struct {
+        # 	Name string `json:"user_name"` // неверно, название поля Name, теги должны называться name
+        # }
+        #
+        # type Tagged struct {
+        # 	UserName string `json:"user_name"` // верно
+        # }
+        #
+        # type Tagged struct {
+        # 	Name string `json:"name"` // верно
+        # }
+        #
+        # Выключаем
+        use-field-name: false
+        # The field names to ignore.
+        # Default: []
+        ignored-fields: []
+        # Overrides the default/root configuration.
+        # Default: []
+        overrides: []
+          # The package path (uses `/` only as a separator).
+          # Required
+          #
+          # Переопределить правила для определённых пакетов
+          # - pkg: foo/bar
+          # Default: empty or the same as the default/root configuration.
+          # rules:
+          # json: snake
+          # xml: pascal
+          # Default: empty or the same as the default/root configuration.
+          # extended-rules:
+          # Same options as the base `extended-rules`.
+          # Default: false (WARNING: it doesn't follow the default/root configuration)
+          # use-field-name: true
+          # The field names to ignore.
+          # Default: [] or the same as the default/root configuration.
+          # ignored-fields:
+          # - Bar
+          # - Foo
+          # Ignore the package (takes precedence over all other configurations).
+          # Default: false
+          # Игнорировать пакет для проверки
+          # ignore: true
+
+    testifylint:
+      # Enable all checkers (https://github.com/Antonboom/testifylint#checkers).
+      # Default: false
+      enable-all: false
+      # Disable checkers by name
+      # (in addition to default
+      #   suite-thelper
+      # ).
+      disable: []
+      # Disable all checkers (https://github.com/Antonboom/testifylint#checkers).
+      # Default: false
+      disable-all: true
+      # Enable checkers by name
+      # (in addition to default
+      #   blank-import, bool-compare, compares, contains, empty, encoded-compare, equal-values, error-is-as, error-nil,
+      #   expected-actual, go-require, float-compare, formatter, len, negative-positive, nil-compare, regexp, require-error,
+      #   suite-broken-parallel, suite-dont-use-pkg, suite-extra-assert-call, suite-subtest-run, suite-method-signature,
+      #   useless-assert
+      # ).
+      enable:
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#blank-import
+        # Запрещает _ blank импорты пакетов testify
+        #
+        # ❌
+        # import (
+        #     "testing"
+        #
+        #     _ "github.com/stretchr/testify"
+        #     _ "github.com/stretchr/testify/assert"
+        #     _ "github.com/stretchr/testify/http"
+        #     _ "github.com/stretchr/testify/mock"
+        #     _ "github.com/stretchr/testify/require"
+        #     _ "github.com/stretchr/testify/suite"
+        # )
+        #
+        # ✅
+        # import (
+        #     "testing"
+        # )
+        #
+        # Может показаться что revive.blank-imports делает то же самое
+        # однако он игнорирует тестовые пакеты, что делает testifylint.blank-import крайне полезным
+        #
+        - blank-import
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#bool-compare
+        # Валидирует сравнения boolean переменных
+        #
+        # ❌
+        # assert.Equal(t, false, result)
+        # assert.EqualValues(t, false, result)
+        # assert.Exactly(t, false, result)
+        # assert.NotEqual(t, true, result)
+        # assert.NotEqualValues(t, true, result)
+        # assert.False(t, !result)
+        # assert.True(t, result == true)
+        # // And other variations...
+        #
+        # ✅
+        # assert.True(t, result)
+        # assert.False(t, result)
+        #
+        - bool-compare
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#compares
+        # Валидирует сравнения значений
+        #
+        # ❌
+        # assert.True(t, a == b)
+        # assert.True(t, a != b)
+        # assert.True(t, a > b)
+        # assert.True(t, a >= b)
+        # assert.True(t, a < b)
+        # assert.True(t, a <= b)
+        # assert.False(t, a == b)
+        # // And so on...
+        #
+        # ✅
+        # assert.Equal(t, a, b)
+        # assert.NotEqual(t, a, b)
+        # assert.Greater(t, a, b)
+        # assert.GreaterOrEqual(t, a, b)
+        # assert.Less(t, a, b)
+        # assert.LessOrEqual(t, a, b)
+        #
+        - compares
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#contains
+        # Предлагает заменить .True(strings.Contains(expected, "contains")) на .Contains(expecteed, "contains")
+        #
+        # X
+        # assert.True(t, strings.Contains(a, "abc123"))
+        # assert.False(t, !strings.Contains(a, "abc123"))
+        # assert.False(t, strings.Contains(a, "abc123"))
+        # assert.True(t, !strings.Contains(a, "abc123"))
+        # assert.Contains(t, arr, 1, 2)
+        # assert.NotContains(t, arr, 1, 2)
+        #
+        # ✅
+        # assert.Contains(t, a, "abc123")
+        # assert.NotContains(t, a, "abc123")
+        # assert.Subset(t, arr, 1, 2)
+        # assert.NotSubset(t, arr, 1, 2)
+        #
+        - contains
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#empty
+        #
+        # для проверки длины массивов и сравнения пустых строк есть специальные
+        # функции Empty, NotEmpty
+        #
+        # ❌
+        # assert.Len(t, arr, 0)
+        # assert.Zero(t, str)
+        # assert.Zero(t, len(arr))
+        # assert.Equal(t, 0, len(arr))
+        # assert.EqualValues(t, 0, len(arr))
+        # assert.Exactly(t, 0, len(arr))
+        # assert.LessOrEqual(t, len(arr), 0)
+        # assert.GreaterOrEqual(t, 0, len(arr))
+        # assert.Less(t, len(arr), 1)
+        # assert.Greater(t, 1, len(arr))
+        # assert.Equal(t, "", str)
+        # assert.EqualValues(t, "", str)
+        # assert.Exactly(t, "", str)
+        # assert.Equal(t, ``, str)
+        # assert.EqualValues(t, ``, str)
+        # assert.Exactly(t, ``, str)
+        #
+        # assert.Positive(t, len(arr))
+        # assert.NotZero(t, str)
+        # assert.NotZero(t, len(arr))
+        # assert.NotEqual(t, 0, len(arr))
+        # assert.NotEqualValues(t, 0, len(arr))
+        # assert.Greater(t, len(arr), 0)
+        # assert.Less(t, 0, len(arr))
+        # assert.NotEqual(t, "", str)
+        # assert.NotEqualValues(t, "", str)
+        # assert.NotEqual(t, ``, str)
+        # assert.NotEqualValues(t, ``, str)
+        #
+        # ✅
+        # assert.Empty(t, arr)
+        # assert.NotEmpty(t, arr)
+        - empty
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#encoded-compare
+        #
+        # Обнаруживает сравнения строки в json формате которые можно заменить на .JSONEq или .YAMLEq
+        #
+        # ❌
+        # assert.Equal(t, `{"foo": "bar"}`, body)
+        # assert.EqualValues(t, `{"foo": "bar"}`, body)
+        # assert.Exactly(t, `{"foo": "bar"}`, body)
+        # assert.Equal(t, expectedJSON, resultJSON)
+        # assert.Equal(t, expBodyConst, w.Body.String())
+        # assert.Equal(t, fmt.Sprintf(`{"value":"%s"}`, hexString), result)
+        # assert.Equal(t, "{}", json.RawMessage(resp))
+        # assert.Equal(t, expJSON, strings.Trim(string(resultJSONBytes), "\n")) // + Replace, ReplaceAll, TrimSpace
+        #
+        # assert.Equal(t, expectedYML, conf)
+        #
+        # ✅
+        # assert.JSONEq(t, `{"foo": "bar"}`, body)
+        # assert.YAMLEq(t, expectedYML, conf)
+        #
+        # Данные функции вызывают Unmarshal на обоих строках
+        # что гарантирует верный формат и исключает ошибки связанные с отсупами
+        - encoded-compare
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#equal-values
+        #
+        # EqualValues позволяет сравнивать числовые значения не опираясь на тип
+        # однако в случае если тип одинаковый необходимо использовать .Equal
+        #
+        # require.EqualValues(t, int32(1), 1) // валидно так как 1 == 1
+        # require.Equal(t, int32(1), 1) // ошибка так как типы разные (int32 и int)
+        #
+        # ❌
+        # assert.EqualValues(t, 42, result.IntField)
+        # assert.NotEqualValues(t, 42, result.IntField)
+        # // And other variations with similar types (strings, numerics, structs, etc.)...
+        #
+        # ✅
+        # assert.Equal(t, 42, result.IntField)
+        # assert.NotEqual(t, 42, result.IntField)
+        #
+        - equal-values
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#error-is-as
+        #
+        # Валидирует сравнение ошибок
+        #
+        # ❌
+        # assert.Error(t, err, errSentinel) // второй аргумент будет передан как msgAndArgs
+        # assert.NoError(t, err, errSentinel)
+        # assert.IsType(t, err, errSentinel)
+        # assert.IsType(t, (*http.MaxBytesError)(nil), err)
+        # assert.IsNotType(t, err, errSentinel)
+        # assert.IsNotType(t, store.NotFoundError{}, err)
+        # assert.True(t, errors.Is(err, errSentinel))
+        # assert.False(t, errors.Is(err, errSentinel))
+        # assert.True(t, errors.As(err, &target))
+        # assert.False(t, errors.As(err, &target))
+        #
+        # ✅
+        # assert.ErrorIs(t, err, errSentinel)
+        # assert.NotErrorIs(t, err, errSentinel)
+        # assert.ErrorAs(t, err, &target)
+        # assert.NotErrorAs(t, err, &target)
+        - error-is-as
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#error-nil
+        #
+        # Для простой проверки на err != nil существуют специальные фукнции .Error, .NoError
+        #
+        # ❌
+        # assert.Nil(t, err)
+        # assert.Empty(t, err)
+        # assert.Zero(t, err)
+        # assert.Equal(t, nil, err)
+        # assert.EqualValues(t, nil, err)
+        # assert.Exactly(t, nil, err)
+        # assert.ErrorIs(t, err, nil)
+        # assert.IsType(t, err, nil)
+        #
+        # assert.NotNil(t, err)
+        # assert.NotEmpty(t, err)
+        # assert.NotZero(t, err)
+        # assert.NotEqual(t, nil, err)
+        # assert.NotEqualValues(t, nil, err)
+        # assert.NotErrorIs(t, err, nil)
+        # assert.IsNotType(t, err, nil)
+        #
+        # ✅
+        # assert.NoError(t, err)
+        # assert.Error(t, err)
+        #
+        - error-nil
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#expected-actual
+        #
+        # Проверят что expected аргументы идут первыми
+        # expected - статичные значения или переменные названия которых
+        # соответствуют заданному regexp (Настраивается)
+        #
+        # ❌
+        # assert.Equal(t, result, expected)
+        # assert.Equal(t, result, len(expected))
+        # assert.Equal(t, len(resultFields), len(expectedFields))
+        # assert.EqualExportedValues(t, resultObj, User{Name: "Rob"})
+        # assert.EqualValues(t, result, 42)
+        # assert.Exactly(t, result, int64(42))
+        # assert.JSONEq(t, result, `{"version": 3}`)
+        # assert.InDelta(t, result, 42.42, 1.0)
+        # assert.InDeltaMapValues(t, result, map[string]float64{"score": 0.99}, 1.0)
+        # assert.InDeltaSlice(t, result, []float64{0.98, 0.99}, 1.0)
+        # assert.InEpsilon(t, result, 42.42, 0.0001)
+        # assert.InEpsilonSlice(t, result, []float64{0.9801, 0.9902}, 0.0001)
+        # assert.IsType(t, result, (*User)(nil))
+        # assert.NotEqual(t, result, "expected")
+        # assert.NotEqualValues(t, result, "expected")
+        # assert.NotSame(t, resultPtr, &value)
+        # assert.Same(t, resultPtr, &value)
+        # assert.WithinDuration(t, resultTime, time.Date(2023, 01, 12, 11, 46, 33, 0, nil), time.Second)
+        # assert.YAMLEq(t, result, "version: '3'")
+        #
+        # ✅
+        # assert.Equal(t, expected, result)
+        # assert.Equal(t, len(expected), result)
+        # assert.Equal(t, len(expectedFields), len(resultFields))
+        # assert.EqualExportedValues(t, User{Name: "Rob"}, resultObj)
+        # assert.EqualValues(t, 42, result)
+        # // And so on...
+        #
+        #
+        - expected-actual
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#float-compare
+        #
+        # Устанавливает правила для сравнения float значений
+        #
+        # ❌
+        # assert.Equal(t, 42.42, result)
+        # assert.EqualValues(t, 42.42, result)
+        # assert.Exactly(t, 42.42, result)
+        # assert.True(t, result == 42.42)
+        # assert.False(t, result != 42.42)
+        #
+        # ✅
+        # assert.InEpsilon(t, 42.42, result, 0.0001) // Or assert.InDelta
+        #
+        # по скольку float не является точным примитивом рекомендуется сравнивать
+        # с погрешностью
+        #
+        - float-compare
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#formatter
+        #
+        # Сообщает о нежелательных вызовах форматирования, которые можно заменить на встроенные функции testify
+        #
+        # ❌
+        # assert.ElementsMatch(t, certConfig.Org, csr.Subject.Org, "organizations not equal")
+        # assert.Error(t, err, fmt.Sprintf("Profile %s should not be valid", test.profile))
+        # assert.Errorf(t, err, fmt.Sprintf("test %s", test.testName))
+        # assert.Truef(t, targetTs.Equal(ts), "the timestamp should be as expected (%s) but was %s", targetTs)
+        # // And other go vet's printf checks...
+        #
+        # ✅
+        # assert.ElementsMatchf(t, certConfig.Org, csr.Subject.Org, "organizations not equal")
+        # assert.Errorf(t, err, "Profile %s should not be valid", test.profile)
+        # assert.Errorf(t, err, "test %s", test.testName)
+        # assert.Truef(t, targetTs.Equal(ts), "the timestamp should be as expected (%s) but was %s", targetTs, ts)
+        - formatter
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#go-require
+        #
+        # Сообщает о случаях вызова FailNow, require в горутинах
+        # подробнее об этом рассказано в govet.testinggoroutine
+        #
+        # go func() {
+        #     conn, err = lis.Accept()
+        #     require.NoError(t, err) ❌
+        #
+        #     if assert.Error(err) {     ✅
+        #         assert.FailNow(t, msg) ❌
+        #     }
+        # }()
+        #
+        - go-require
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#len
+        #
+        # Сообщает о неверном сравнении длин массивов
+        #
+        # ❌
+        # assert.Equal(t, 42, len(arr))
+        # assert.Equal(t, len(arr), 42)
+        # assert.EqualValues(t, 42, len(arr))
+        # assert.EqualValues(t, len(arr), 42)
+        # assert.Exactly(t, 42, len(arr))
+        # assert.Exactly(t, len(arr), 42)
+        # assert.True(t, 42 == len(arr))
+        # assert.True(t, len(arr) == 42)
+        #
+        # assert.Equal(t, value, len(arr))
+        # assert.EqualValues(t, value, len(arr))
+        # assert.Exactly(t, value, len(arr))
+        # assert.True(t, len(arr) == value)
+        #
+        # assert.Equal(t, len(expArr), len(arr))
+        # assert.EqualValues(t, len(expArr), len(arr))
+        # assert.Exactly(t, len(expArr), len(arr))
+        # assert.True(t, len(arr) == len(expArr))
+        #
+        # ✅
+        # assert.Len(t, arr, 42)
+        # assert.Len(t, arr, value)
+        # assert.Len(t, arr, len(expArr))
+        #
+        - len
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#negative-positive
+        #
+        # Сообщает о неправильных проверках чисел положительность/отрицательность
+        #
+        # ❌
+        # assert.Less(t, a, 0)
+        # assert.Greater(t, 0, a)
+        # assert.True(t, a < 0)
+        # assert.True(t, 0 > a)
+        # assert.False(t, a >= 0)
+        # assert.False(t, 0 <= a)
+        #
+        # assert.Greater(t, a, 0)
+        # assert.Less(t, 0, a)
+        # assert.True(t, a > 0)
+        # assert.True(t, 0 < a)
+        # assert.False(t, a <= 0)
+        # assert.False(t, 0 >= a)
+        #
+        # ✅
+        # assert.Negative(t, a)
+        # assert.Positive(t, a)
+        #
+        - negative-positive
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#nil-compare
+        #
+        # Ответственнен за некорректные сравнения с nil
+        #
+        # ❌
+        # assert.Equal(t, nil, value)
+        # assert.EqualValues(t, nil, value)
+        # assert.Exactly(t, nil, value)
+        #
+        # assert.NotEqual(t, nil, value)
+        # assert.NotEqualValues(t, nil, value)
+        #
+        # ✅
+        # assert.Nil(t, value)
+        # assert.NotNil(t, value)
+        #
+        - nil-compare
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#regexp
+        #
+        # Указывает на участки кода с неверным использованием Regexp
+        #
+        # ❌
+        # assert.Regexp(t, regexp.MustCompile(`\[.*\] DEBUG \(.*TestNew.*\): message`), out)
+        # assert.NotRegexp(t, regexp.MustCompile(`\[.*\] TRACE message`), out)
+        #
+        # ✅
+        # assert.Regexp(t, `\[.*\] DEBUG \(.*TestNew.*\): message`, out)
+        # assert.NotRegexp(t, `\[.*\] TRACE message`, out)
+        #
+        - regexp
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#require-error
+        #
+        # Запрещает проверять ошибки с помощью assert
+        #
+        # ❌
+        # assert.Error(t, err) // s.Error(err), s.Assert().Error(err)
+        # assert.ErrorIs(t, err, io.EOF)
+        # assert.ErrorAs(t, err, &target)
+        # assert.EqualError(t, err, "end of file")
+        # assert.ErrorContains(t, err, "end of file")
+        # assert.NoError(t, err)
+        # assert.NotErrorIs(t, err, io.EOF)
+
+        # ✅
+        # require.Error(t, err) // s.Require().Error(err), s.Require().Error(err)
+        # require.ErrorIs(t, err, io.EOF)
+        # require.ErrorAs(t, err, &target)
+        # // And so on...
+        - require-error
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#suite-broken-parallel
+        #
+        # Использование s.T().Parallel() неприемлимо для suite структур
+        #
+        # func (s *MySuite) SetupTest() {
+        #     s.T().Parallel() ❌
+        # }
+        #
+        # // And other hooks...
+        #
+        # func (s *MySuite) TestSomething() {
+        #     s.T().Parallel() ❌
+        #
+        #     for _, tt := range cases {
+        #         s.Run(tt.name, func() {
+        #             s.T().Parallel() ❌
+        #         })
+        #
+        #         s.T().Run(tt.name, func(t *testing.T) {
+        #             t.Parallel() ❌
+        #         })
+        #     }
+        # }
+        - suite-broken-parallel
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#suite-dont-use-pkg
+        #
+        # для suite необходимо использовать методы а не функции пакета
+        #
+        # func (s *MySuite) TestSomething() {
+        #     ❌ assert.Equal(s.T(), 42, value)
+        #     ✅ s.Equal(42, value)
+        # }
+        - suite-dont-use-pkg
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#suite-extra-assert-call
+        #
+        # Настраивает правила вызова (*suite.Suite).True
+        #
+        # mode: remove
+        # func (s *MySuite) TestSomething() {
+        #     ❌ s.Assert().Equal(42, value)
+        #     ✅ s.Equal(42, value)
+        # }
+        #
+        # Настраивается, можно настроить так чтобы вызов Require или Assert был обязательным
+        # с помощью mode: require
+        # func (s *MySuite) TestSomething() {
+        #     // ...
+
+        #     ❌
+        #     s.Require().NoError(err)
+        #     s.Equal(42, value)
+
+        #     ✅
+        #     s.Require().NoError(err)
+        #     s.Assert().Equal(42, value)
+        # }
+        - suite-extra-assert-call
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#suite-method-signature
+        #
+        # Проверяет сигнатуры методов suite
+        #
+        # ❌
+        # func (s *MySuite) SetupTest(i int) { /* ... */ }
+        # func (s *MySuite) TestAlice(t *testing.T) { s.SetupTest(rand()) /* ... */ }
+        # func (s *MySuite) TestBob() { s.SetupTest(rand()) /* ... */ }
+        #
+        # ✅
+        # func (s *MySuite) SetupTest() { s.setupTest(rand()) } // Use inversion-of-control's methods from suite interfaces.
+        # func (s *MySuite) TestAlice() { /* ... */  }          // Keep test methods clean from args and returning values.
+        # func (s *MySuite) TestBob() { /* ... */  }
+        # func (s *MySuite) setupTest(i int) { /* ... */ }
+        - suite-method-signature
+
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#suite-subtest-run
+        #
+        # проверяет правила вызова саб-тестов suite.Suite
+        #
+        # func (s *MySuite) TestSomething() {
+        #     ❌
+        #     s.T().Run("subtest", func(t *testing.T) {
+        #         assert.Equal(t, 42, result)
+        #     })
+        #
+        #     ✅
+        #     s.Run("subtest", func() {
+        #         s.Equal(42, result)
+        #     })
+        # }
+        - suite-subtest-run
+
+        # Устанавливвает правила вызова suite.Suite.T().Helper()
+        #
+        #
+        # Выключаем
+        #
+        # При ошибке testify напечатает весь stacktrace так что это не так уж и важно
+        # выглядит как линтер ради линтера
+        #
+        # ❌
+        # func (s *RoomSuite) assertRoomRound(roundID RoundID) {
+        #     s.Equal(roundID, s.getRoom().CurrentRound.ID)
+        # }
+        #
+        # ✅
+        # func (s *RoomSuite) assertRoomRound(roundID RoundID) {
+        #     s.T().Helper()
+        #     s.Equal(roundID, s.getRoom().CurrentRound.ID)
+        # }
+        # - suite-thelper
+
+        # Предохраняет код от проверки одной и той же переменной
+        #
+        # assert.Contains(t, tt.value, tt.value)
+        # assert.ElementsMatch(t, tt.value, tt.value)
+        # assert.Equal(t, tt.value, tt.value)
+        # assert.EqualExportedValues(t, tt.value, tt.value)
+        # // And other assert functions...
+        #
+        # assert.True(t, num > num)
+        # assert.True(t, num < num)
+        # assert.True(t, num >= num)
+        # assert.True(t, num <= num)
+        # assert.True(t, num == num)
+        # assert.True(t, num != num)
+        #
+        # assert.False(t, num > num)
+        # assert.False(t, num < num)
+        # assert.False(t, num >= num)
+        # assert.False(t, num <= num)
+        # assert.False(t, num == num)
+        # assert.False(t, num != num)
+        #
+        # Так же предохраняет от бессмысленных проверок
+        #
+        # assert.Empty(t, "value") // Any string literal.
+        # assert.Error(t, nil)
+        # assert.False(t, false) // Any bool literal.
+        # assert.Implements(t, (*any)(nil), new(Conn))
+        # assert.Negative(t, 42) // Any int literal.
+        # assert.Nil(t, nil)
+        # assert.NoError(t, nil)
+        # assert.NotEmpty(t, "value") // Any string literal.
+        # assert.NotImplements(t, (*any)(nil), new(Conn))
+        # assert.NotNil(t, nil)
+        # assert.NotZero(t, 42)      // Any int literal.
+        # assert.NotZero(t, "value") // Any string literal.
+        # assert.NotZero(t, nil)
+        # assert.NotZero(t, false) // Any bool literal.
+        # assert.Positive(t, 42)   // Any int literal.
+        # assert.True(t, true)     // Any bool literal.
+        # assert.Zero(t, 42)       // Any int literal.
+        # assert.Zero(t, "value")  // Any string literal.
+        # assert.Zero(t, nil)
+        # assert.Zero(t, false) // Any bool literal.
+        #
+        # assert.Negative(len(x))
+        # assert.Less(len(x), 0)
+        # assert.Greater(0, len(x))
+        # assert.GreaterOrEqual(len(x), 0)
+        # assert.LessOrEqual(0, len(x))
+        #
+        # assert.Negative(uintVal)
+        # assert.Less(uintVal, 0)
+        # assert.Greater(0, uintVal)
+        # assert.GreaterOrEqual(uintVal, 0)
+        # assert.LessOrEqual(0, uintVal)
+        - useless-assert
+
+      bool-compare:
+        # To ignore user defined types (over builtin bool).
+        # Default: false
+        #
+        # Настройка которая позволяет игнорировать
+        # кастомные типы поверх bool при валидации проверок bool
+        #
+        # type Bool bool
+        #
+        # var predicate Bool
+        # ❌ assert.Equal(t, false, predicate)
+        # ✅ assert.False(t, bool(predicate))
+        #
+        ignore-custom-types: false
+
+      expected-actual:
+        # Regexp for expected variable name.
+        # Default: (^(exp(ected)?|want(ed)?)([A-Z]\w*)?$)|(^(\w*[a-z])?(Exp(ected)?|Want(ed)?)$)
+        pattern: (^(exp(ected)?|want(ed)?)([A-Z]\w*)?$)|(^(\w*[a-z])?(Exp(ected)?|Want(ed)?)$)
+
+      formatter:
+        # To enable go vet's printf checks.
+        # Default: true
+        check-format-string: true
+        # To require f-assertions (e.g. `assert.Equalf`) if format string is used, even if there are no variable-length
+        # variables, i.e. it requires `require.NoErrorf` for both these cases:
+        # - require.NoErrorf(t, err, "unexpected error")
+        # - require.NoErrorf(t, err, "unexpected error for sid: %v", sid)
+        # To understand this behavior, please read the
+        # https://github.com/Antonboom/testifylint?tab=readme-ov-file#historical-reference-of-formatter.
+        # Default: false
+        require-f-funcs: true
+        # To require that the first element of msgAndArgs (msg) has a string type.
+        # For example, in such case assertion like `assert.True(t, b, tt.case)` will be considered as invalid.
+        # Default: true
+        require-string-msg: false
+
+      go-require:
+        # To ignore HTTP handlers (like http.HandlerFunc).
+        # Default: false
+        ignore-http-handlers: false
+
+      require-error:
+        # Regexp for assertions to analyze. If defined, then only matched error assertions will be reported.
+        # Default: ""
+        fn-pattern: ""
+
+      suite-extra-assert-call:
+        # To require or remove extra Assert() call?
+        # Default: remove
+        mode: require
+
+    thelper:
+      # есть три настройки
+      #
+      # first - проверяет что аргумент является первым или идёт после context.Context
+      #
+      # До
+      # func myHelper(int, *testing.T) {} // идёт вторым аргументом после int
+      #
+      # После
+      # func myHelper(*testing.T, int) {} // является первым аргументом
+      #
+      # name - проверяет название параметра
+      # в случае если его нет или оно опущено func myHelper(_ *testing.T) проверка не происходит
+      #
+      # До
+      # func myHelper(wrong *testing.T, _ int) {}
+      #
+      # После
+      # func myHelper(t *testing.T, _ int) {}
+      #
+      # begin - функция должна начинаться с t.Helper()
+      # Выключаем
+      # t.Helper убирает из стека вызовов внутренние функции
+      # в большинстве случаев я хочу знать где внутри моей функции произошла ошибка
+      #
+      # До
+      # func myHelper(t *testing.T) {}
+      #
+      # После
+      # func myHelper(t *testing.T) {
+      # 	t.Helper()
+      # }
+
+      test:
+        # Check *testing.T is first param (or after context.Context) of helper function.
+        # Default: true
+        first: true
+        # Check *testing.T param has name t.
+        # Default: true
+        name: true
+        # Check t.Helper() begins helper function.
+        # Default: true
+        begin: false
+      benchmark:
+        # Check *testing.B is first param (or after context.Context) of helper function.
+        # Default: true
+        first: true
+        # Check *testing.B param has name b.
+        # Default: true
+        name: true
+        # Check b.Helper() begins helper function.
+        # Default: true
+        begin: false
+      tb:
+        # Check *testing.TB is first param (or after context.Context) of helper function.
+        # Default: true
+        first: true
+        # Check *testing.TB param has name tb.
+        # Default: true
+        name: true
+        # Check tb.Helper() begins helper function.
+        # Default: true
+        begin: false
+      fuzz:
+        # Check *testing.F is first param (or after context.Context) of helper function.
+        # Default: true
+        first: true
+        # Check *testing.F param has name f.
+        # Default: true
+        name: true
+        # Check f.Helper() begins helper function.
+        # Default: true
+        begin: false
+
+    # опции являются экспериментальными и выключают не совсем то что нужно
+    # Оставим их по умолчанию falsec
+    unconvert:
+      # Remove conversions that force intermediate rounding.
+      # Default: false
+      fast-math: false
+      # Be more conservative (experimental).
+      # Default: false
+      safe: false
+
+    unparam:
+      # Inspect exported functions.
+      #
+      # Set to true if no external program/library imports your code.
+      # XXX: if you enable this setting, unparam will report a lot of false-positives in text editors:
+      # if it's called for subdir of a project it can't find external interfaces. All text editor integrations
+      # with golangci-lint call it on a directory with the changed file.
+      #
+      # Default: false
+      check-exported: true
+
+    unqueryvet:
+      # Enable SQL builder checking.
+      # Default: true
+      check-sql-builders: true
+      # Regex patterns for acceptable SELECT * usage.
+      # Default:
+      # - "SELECT \\* FROM information_schema\\..*"
+      # - "SELECT \\* FROM pg_catalog\\..*"
+      # - "SELECT COUNT\\(\\*\\)"
+      # - "SELECT MAX\\(\\*\\)"
+      # - "SELECT MIN\\(\\*\\)"
+      allowed-patterns:
+        - "SELECT \\* FROM information_schema\\..*"
+        - "SELECT \\* FROM pg_catalog\\..*"
+        - "SELECT COUNT\\(\\*\\)"
+        - "SELECT MAX\\(\\*\\)"
+        - "SELECT MIN\\(\\*\\)"
+
+    unused:
+      # Mark all struct fields that have been written to as used.
+      # Default: true
+      # Засчитывает случаи записи приватных полей как использование
+      #
+      # type Unused struct {
+      # 	field string
+      # }
+      #
+      # un := Unused{}
+      # un.field = "Hello World!" // если опция выключена линтер засчитает поле как неиспользуемое
+      field-writes-are-uses: true
+
+      # Treat IncDec statement (e.g. `i++` or `i--`) as both read and write operation instead of just write.
+      # Default: false
+      #
+      #
+      # func main() {
+      # 	i := 0
+      # 	i++ // если выключено сообщит о неиспользуемом параметре
+      # }
+      post-statements-are-reads: true
+
+      # Mark all exported fields as used.
+      # default: true
+      #
+      # Помечает публичные поля как используемые
+      # В golangci-lint все экспортируемые объявления являются используемыми
+      # данная настройка необходима для встраивания приватных типов в публичные
+      #
+      #
+      # type embedded struct { // если выключено сообщит о том что тип нигде не используется (каскадная ошибка)
+      # 	Name string
+      # }
+      #
+      # type MyStruct struct {
+      # 	embedded // если выключено сообщит о том что данное поле не используется
+      # }
+      #
+      exported-fields-are-used: true
+
+      # Mark all function parameters as used.
+      # default: true
+      #
+      # Помечает все параметры функции как использованные
+      # это необходимо для избежания дублей с revive.unused-parameter
+      #
+      # func unusedParam(i int) {} // если опция выключена сообщит о неиспользуемости параметра
+      parameters-are-used: true
+
+      # Mark all local variables as used.
+      # default: true
+      #
+      # Помечает все локальные переменные как использованные
+      #
+      # func main() {
+      # 	un := 1 // если выключено сообщит о неиспользуемой переменной
+      # 	un++
+      # }
+      local-variables-are-used: true
+
+      # Mark all identifiers inside generated files as used.
+      # Default: true
+      #
+      # Помечает всё содержимое сгенерированных файлов как используемое
+      generated-is-used: true
+
+    usestdlibvars:
+      # Suggest the use of http.MethodXX.
+      # Default: true
+      #
+      # Сообщает об использовании http методов как строковых значений
+      #
+      # До
+      #	_, _ = http.NewRequestWithContext(context.Background(), "GET", "/path", http.NoBody)
+      # После
+      # _, _ = http.NewRequestWithContext(context.Background(), http.MethodGet, "/path", http.NoBody)
+      #
+      http-method: true
+
+      # Suggest the use of http.StatusXX.
+      # Default: true
+      http-status-code: false
+
+      # Suggest the use of time.Month in time.Date.
+      # Default: false
+      time-date-month: true
+      # Suggest the use of time.Weekday.String().
+      # Default: true
+      time-weekday: true
+      # Suggest the use of time.Month.String().
+      # Default: false
+      time-month: true
+      # Suggest the use of time.Layout.
+      # Default: false
+      time-layout: true
+      # Suggest the use of crypto.Hash.String().
+      # Default: false
+      crypto-hash: true
+      # Suggest the use of rpc.DefaultXXPath.
+      # Default: false
+      default-rpc-path: true
+      # Suggest the use of sql.LevelXX.String().
+      # Default: false
+      sql-isolation-level: true
+      # Suggest the use of tls.SignatureScheme.String().
+      # Default: false
+      tls-signature-scheme: true
+      # Suggest the use of constant.Kind.String().
+      # Default: false
+      constant-kind: true
+
+    varnamelen:
+      # Описывает названия переменных с их типами которые мы предпочли бы игнорировать
+      ignore-decls:
+        - wg sync.WaitGroup
+        - wg *sync.WaitGroup
+        - r *http.Request
+        - w http.ResponseWriter
+        - w io.Writer
+        - r io.Reader
+
+      ignore-names:
+        - err
+        - ok
+        - db
+
+      # Проверять ли поля структур
+      check-type-param: true
+
+      # func (s Service) foo() // s слишком малое название
+      # Выключаем
+      check-receiver: false
+
+      # Проверка именованых return значений
+      check-return: true
+
   exclusions:
     # Сообщает что исключение не используется
     # Может немного напрягать
@@ -8747,7 +9953,7 @@ formatters:
     - gci
     - gofmt
     - gofumpt
-    - golines
+    # - golines
 
 run:
   timeout: "1m"
