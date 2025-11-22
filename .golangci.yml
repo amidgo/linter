@@ -1014,7 +1014,7 @@ linters:
     # Сообщает о неиспользуемом коде (поля, параметры, переменные, типы)
     - unused
 
-    # https://github.com/dominikh/go-tools/tree/HEAD/unused
+    # https://golangci-lint.run/docs/linters/configuration/#usestdlibvars
     # https://github.com/sashamelentyev/usestdlibvars
     #
     # Сообщает о использовании значений которые могут быть заменены
