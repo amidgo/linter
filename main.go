@@ -1,10 +1,8 @@
 package main
 
-import (
-	"context"
-	"net/http"
-)
+import "go/constant"
+
+var intConstant = constant.Int.String()
 
 func main() {
-	_, _ = http.NewRequestWithContext(context.Background(), http.MethodGet, "/path", http.NoBody)
 }

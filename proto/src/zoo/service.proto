@@ -2,9 +2,13 @@ syntax = "proto3";
 
 package zoo;
 
-option go_package = 'grpc/v1/zoo';
+option go_package = 'zoo/grpc/v1';
 
 message AddAnimalRequest {
   string name = 1;
   reserved 2 to 100;
 }
+
+message AddAnimalResponse {}
+
+service Zoo { rpc AddAnimal(AddAnimalRequest) returns (AddAnimalRequest); }

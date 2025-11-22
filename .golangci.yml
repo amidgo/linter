@@ -3828,7 +3828,21 @@ linters:
               allow-ints: "0,1"
               allow-floats: "0.0,1.0"
               # список функций разделенных запятой, для которых следует игнорировать правила линтера
-              ignore-funcs: "foo,baz"
+              ignore-funcs:
+                WriteHeader,
+                http.NewRequest,
+                http.NewRequestWithContext,
+                http.Error,
+                http.StatusText,
+                http.Redirect,
+                http.RedirectHandler,
+                httptest.NewRequest,
+                syslog.New,
+                syslog.Dial,
+                syslog.NewLogger,
+                time.Date
+
+                # Игнорируем для избежания дублей с usestdlibvars
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#argument-limit
         # Устанавливает максимально допустимое количество аргументов в функции
@@ -7751,9 +7765,10 @@ linters:
         #
         # usestdlibvars выполняет ту же самую функцию
         #
-        # Однако функционал гораздо шире и выходит за пределы http.StatusCode
+        # Однако лучше справляется с обнаружением случаев использования магических чисел а не констант
         #
-        - ST1013
+        # Выключаем
+        # - ST1013
 
         # A switch's default case should be the first or last case.
         # https://staticcheck.dev/docs/checks/#ST1015
@@ -9857,34 +9872,199 @@ linters:
 
       # Suggest the use of http.StatusXX.
       # Default: true
-      http-status-code: false
+      #
+      # rec := httptest.NewRecorder()
+      #
+      # До
+      # rec.WriteHeader(500) // можно заменить на http.StatusInternalServerError
+      #
+      # После
+      # rec.WriteHeader(http.StatusInternalServerError)
+      #
+      http-status-code: true
 
       # Suggest the use of time.Month in time.Date.
       # Default: false
+      #
+      # Сообщает о замене третьего аргумента в фукнции time.Date
+      # на константу месяца
+      #
+      # До
+      # dateOfBirth := time.Date(2004, 11, 25, 12, 30, 0, 0, time.Local)
+      # После
+      # dateOfBirth := time.Date(2004, time.November, 25, 12, 30, 0, 0, time.Local)
+      #
       time-date-month: true
+
       # Suggest the use of time.Weekday.String().
       # Default: true
+      #
+      # Сообщает о возможной замене строковых выражений на time.Weekday.String()
+      #
+      # До
+      # friday := "Friday"
+      # После
+      # friday := time.Friday.String()
+      #
+      #
+      # Есть некоторый ньанс связанный с тем что константам нельзя присвоить значения
+      # функций и методов
+      #
+      # const friday = "Friday" // линтер сообщит о необходимости замены на time.Friday.String()
+      # Однако
+      #
+      # const friday = time.Friday.String() // не скомпилируется
+      #
+      # var friday = time.Friday.String() // скопилируется, однако теперь это изменяемая переменная
+      #
+      # Польза данного линтера в том что мы вообще не должны создавать
+      # константы с подобными значениями и если нам необходимо название месяца
+      # использовать time.Weekday.String()
+      #
       time-weekday: true
+
       # Suggest the use of time.Month.String().
       # Default: false
+      #
+      # До
+      # february := "February"
+      # После
+      #	february := time.February.String()
+      #
+      # const february = "February" // линтер сообщит о необходимости замены на time.February.String()
+      # Однако
+      #
+      # const february = time.February.String() // не скомпилируется
+      #
+      # var february = time.February.String() // скопилируется, однако теперь это изменяемая переменная
+      #
+      # Польза данного линтера в том что мы вообще не должны создавать
+      # константы с подобными значениями и если нам необходимо название месяца
+      # использовать time.Month.String()
+      #
       time-month: true
+
       # Suggest the use of time.Layout.
       # Default: false
+      #
+      # Сообщает о строковых литералах которые можно заменить на time.Layout
+      #
+      # До
+      # log.Println(time.Now().Format("2006-01-02")) // time.DateOnly равен "2006-01-02"
+      # После
+      # log.Println(time.Now().Format(time.DateOnly))
+      #
       time-layout: true
+
       # Suggest the use of crypto.Hash.String().
       # Default: false
+      #
+      # Сообщает о строковых литералах которые можно заменить на crypto.MD4.String()
+      #
+      # До
+      # myHash := "MD4"
+      # После
+      # myHash := crypto.MD4.String()
+      #
+      # const myHash = "MD4" // линтер сообщит о необходимости замены на crypto.MD4.String()
+      #
+      # const myHash = crypto.MD4.String() // не скомпилируется
+      #
+      # var myHash = crypto.MD4.String() // скопилируется, однако теперь это изменяемая переменная
+      #
+      # Польза данного линтера в том что мы вообще не должны создавать
+      # константы с подобными значениями и если нам необходимо название алгоритма кеширования
+      # использовать crypto.Hash.String()
+      #
       crypto-hash: true
+
       # Suggest the use of rpc.DefaultXXPath.
       # Default: false
+      #
+      # Сообщает о строковых выражениях которые совпадают с константами rpc.DefaultXXPath
+      #
+      # До
+      # debugRPCPath := "/debug/rpc"
+      # rpcPath := "/_goRPC_"
+      #
+      # После
+      # debugRPCPath := rpc.DefaultDebugPath
+      # rpcPath := rpc.DefaultRPCPath
+      #
       default-rpc-path: true
+
       # Suggest the use of sql.LevelXX.String().
       # Default: false
+      #
+      # Сообщает о строковых выражениях которые можно заменить на sql.IsolationLevel.String()
+      #
+      # До
+      # readCommitted := "Read Committed"
+      #
+      # После
+      # readCommitted := sql.LevelReadCommitted.String()
+      #
+      # const readCommitted = "Read Committed" // линтер сообщит о необходимости замены на sql.ReadCommitted.String()
+      #
+      # Однако
+      # const readCommitted = sql.LevelReadCommitted.String() // не скомпилируется
+      #
+      # var readCommitted = sql.LevelReadCommitted.String() // скопилируется, однако теперь это изменяемая переменная
+      #
+      # Польза данного линтера в том что мы вообще не должны создавать
+      # константы с подобными значениями и если нам необходимо название уровня изоляции транзакций
+      # использовать sql.IsolationLevel.String()
+      #
       sql-isolation-level: true
+
       # Suggest the use of tls.SignatureScheme.String().
       # Default: false
+      #
+      # Сообщает о строковых литералах которые можно заменить на tls.SignatureScheme.String()
+      #
+      # До
+      # pkgcs1WithSHA1 := "PKCS1WithSHA1"
+      #
+      # После
+      # pkgcs1WithSHA1 := tls.PKCS1WithSHA1.String()
+      #
+      #
+      # const pkgcs1WithSHA1 = "PKCS1WithSHA1" // линтер сообщит о необходимости замены на tls.PKCS1WithSHA1.String()
+      #
+      # const pkgcs1WithSHA1 = tls.PKCS1WithSHA1.String() // не скомпилируется
+      #
+      # var pkgcs1WithSHA1 = tls.PKCS1WithSHA1.String() // скопилируется, однако теперь это изменяемая переменная
+      #
+      # Польза данного линтера в том что мы вообще не должны создавать
+      # константы с подобными значениями и если нам необходимо название алгоритма шифрования
+      # использовать sql.SignatureScheme.String()
+      #
       tls-signature-scheme: true
+
       # Suggest the use of constant.Kind.String().
       # Default: false
+      #
+      # Сообщает о строковых литералах которые можно заменить на go/constant.Kind.String()
+      #
+      # До
+      # intConstant := "Int"
+      #
+      # После
+      # intConstant := constant.Int.String()
+      #
+      # Не работает на constant.Unknown по понятным причинам (Unknown достаточно общее слово и может употребляться и вне go/constant пакета)
+      # unknownConstant := "Unknown" // Предупреждения не последует
+      #
+      # const intConstant = "Int" // линтер сообщит о необходимости замены на constant.Int.String()
+      #
+      # const intConstant = constant.Int.String() // не cкомпилируется
+      #
+      # var intConstant = constant.Int.String() // скопилируется, однако теперь это изменяемая переменная
+      #
+      # Польза данного линтера в том что мы вообще не должны создавать
+      # константы с подобными значениями и если нам необходимо название типа константы
+      # использовать constant.Kind.String()
+      #
       constant-kind: true
 
     varnamelen:
@@ -9897,15 +10077,13 @@ linters:
         - w io.Writer
         - r io.Reader
 
-      ignore-names:
-        - err
-        - ok
-        - db
+      # Описывает названия которые будут игнорированы независимо от их типа
+      ignore-names: []
 
       # Проверять ли поля структур
       check-type-param: true
 
-      # func (s Service) foo() // s слишком малое название
+      # func (s Service) foo() // s слишком короткое название
       # Выключаем
       check-receiver: false
 
@@ -9922,14 +10100,14 @@ linters:
       # Так как ruleguard это функции go которые представляют собой dsl
       # они более нигде не используются
       # соответственно они исключены из проверок
-      - path: rules.go
+      - path: .rules.go
         linters:
           - unused
 
       - path: _test\.go
         linters:
           # Для тестов вполне нормально если мы схлопотаем панику при a := x.(*Type)
-          # По скольку зачастую в тестах если тип не то мы спаникуем
+          # По скольку зачастую в тестах если тип не тот мы спаникуем
           # Затратив при этом лишние строчки на проверку if !ok и сам вызов паники или t.Fatal
           - forcetypeassert
 
@@ -9937,6 +10115,7 @@ linters:
         linters:
           - revive
 
+        # аналогично с исключением gocognit при проверке тестовых функций мы исключаем проверку длины в тестах
         text: file-length-limit
 
       - source: "^func Test"
@@ -9953,7 +10132,7 @@ formatters:
     - gci
     - gofmt
     - gofumpt
-    # - golines
+    - golines
 
 run:
   timeout: "1m"
@@ -10046,22 +10225,10 @@ issues:
 # gocognit: 5
 # revive.cognitive-complexity: 3
 #
-# gocognit здесь добавил по баллу за вызов рекурсивной функции
+# gocognit здесь добавил по одному баллу за вызов рекурсивной функции
 # gocognit добавляет балл за КАЖДЫЙ вызов рекрсии так как revive добавляет лишь один балл за использование рекурсии
 #
 # Данное предположение основано на следующем примере
-#
-# recursion1:
-#   gocognit: 2
-#   revive.cognitive-complexity: 2
-#
-# recursion2:
-#   gocognit: 5
-#   revive.cognitive-complexity: 3
-#
-#   Здесь мы заменили вызов каждой функции на рекурсию
-#   gocognit увеличил оценку на 3 балла за каждый рекурсионных вызов
-#   revive.cognitive-complexity увеличил всег она 1 балл, просто за наличие рекурсии
 #
 # func recursion1(x int) int {
 # 	if 100 > 0 {
@@ -10090,5 +10257,18 @@ issues:
 # func nonRecursion(int) int {
 # 	return 0
 # }
+#
+# recursion1:
+#   gocognit: 2
+#   revive.cognitive-complexity: 2
+#
+# recursion2:
+#   gocognit: 5
+#   revive.cognitive-complexity: 3
+#
+#   Здесь мы заменили вызов каждой функции на рекурсию
+#   gocognit увеличил оценку на 3 балла за каждый рекурсионных вызов
+#   revive.cognitive-complexity увеличил всег она 1 балл, просто за наличие рекурсии
+#
 #
 # С небольшим перевесом здесь побеждает gocognit за дополнительные баллы за рекурсивные вызовы
