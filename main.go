@@ -1,8 +1,10 @@
 package main
 
-import "go/constant"
+import (
+	"context"
+	"testing"
+)
 
-var intConstant = constant.Int.String()
-
-func main() {
+func thelper(t *testing.T) {
+	_ = context.Background()
 }

@@ -24,6 +24,7 @@ linters:
     # https://github.com/breml/bidichk
     # Проверяет на наличие опасных символов (см README.md в репозитории bidichk)
     # Не вижу практической пользы
+    #
     # - bidichk
 
     # https://golangci-lint.run/docs/linters/configuration/#bodyclose
@@ -1021,6 +1022,18 @@ linters:
     # на константы стандартной библиотеки
     - usestdlibvars
 
+    # https://golangci-lint.run/docs/linters/configuration/#usetesting
+    # https://github.com/ldez/usetesting
+    #
+    # Линтер нацелен на проверку функций в аргументах которой содержится *testing.T, *testing.B
+    #
+    # На *testing.F не распространяется
+    #
+    # Настройки позволяют управлять функциями на которые распространяются проверки
+    # В них входит ряд функций создания директорий, присваивания переменных окружения и методы контекста
+    #
+    - usetesting
+
     - varnamelen
 
     # https://golangci-lint.run/docs/linters/configuration/#wastedassign
@@ -1119,6 +1132,7 @@ linters:
         - '.+/http\.Transport$'
         # не реагируем на tls.Config
         - '.+/tls\.Config$'
+
         # не трогаем prometheus для валидации его полей есть отдельный линтер promlinter
         - '.+/prometheus\..*Opts$'
 
@@ -10066,6 +10080,140 @@ linters:
       # использовать constant.Kind.String()
       #
       constant-kind: true
+
+    usetesting:
+      # Enable/disable `os.CreateTemp("", ...)` detections.
+      # Default: true
+      #
+      # const myPattern = "mypattern"
+      #
+      # os.CreateTemp создает файл в заданной директории открытый на чтение и запись (0o600)
+      # пустое значение первого аргумента - dir означает использование os.TempDir
+      #
+      # для тестов необходимо использовать t.TempDir() так как она будет зачищена после завершения теста
+      # через механизм t.Cleanup
+      #
+      # До
+      # _, _ = os.CreateTemp("", myPattern) // следует заменить на *testing.T
+      #
+      # После
+      # _, _ = os.CreateTemp(t.TempDir(), myPattern) // всё содержимое testing.TempDir() будет зачищено в t.Cleanup
+      #
+      # Срабатывает только когда первым аргументом является "" - равнозначное использование os.TempDir()
+      #
+      # Для обнаружения использования os.TempDir() существует отдельное правило
+      #
+      os-create-temp: true
+
+      # Enable/disable `os.MkdirTemp()` detections.
+      # Default: true
+      #
+      # Сообщает об использовании os.MkdirTemp
+      #
+      # t.TempDir() сама создаст директорию включая рутовую если она не была создана ранее
+      # все повторные вызовы будут создавать директорию в рутовой
+      #
+      # _, _ = os.MkdirTemp("mydir", "pattern")
+      #
+      os-mkdir-temp: true
+
+      # Enable/disable `os.Setenv()` detections.
+      # Default: true
+      #
+      # Вызовы os.Setenv("ENV", "VALUE") необходимо заменить на t.Setenv("ENV", "VALUE") в рамках тестовых функций
+      #
+      # t.Setenv работает по следующему принципу
+      #
+      # 1. Просмотр текущего состояния переменной
+      # 2. Привоение переменной нового значения
+      # 3. Добавление в t.Cleanup возврата к результату который мы получили на этапе 1
+      #    (возврат к предыдущему значению или удаления значения в случае если на момент 1 этапа переменной не было)
+      #
+      #
+      # До
+      # os.Setenv("ENV", "VALUE")
+      #
+      # После
+      # t.Setenv("ENV", "VALUE")
+      #
+      os-setenv: true
+
+      # Enable/disable `os.TempDir()` detections.
+      # Default: false
+      #
+      # os.TempDir() должен быть заменен на t.TempDir()
+      #
+      # для тестов необходимо использовать t.TempDir() так как она будет зачищена после завершения теста
+      # через механизм t.Cleanup
+      #
+      #	const myPattern = "pattern"
+      #
+      #
+      # До
+      # _, _ = os.CreateTemp(os.TempDir(), myPattern)
+      #
+      # После
+      # _ = t.TempDir()
+      #
+      os-temp-dir: true
+
+      # Enable/disable `os.Chdir()` detections.
+      # Disabled if Go < 1.24.
+      # Default: true
+      #
+      # Необходимо использовать t.Chdir вместо os.Chdir
+      #
+      # os.Chdir меняет текущую рабочую директорию
+      #
+      # t.Chdir после завершения теста вернёт текущую директорию
+      # в состояние до запуска теста
+      # механизм работает аналогично t.Setenv
+      #
+      # До
+      # _ = os.Chdir("switch")
+      #
+      # После
+      # t.Chdir("switch")
+      #
+      os-chdir: true
+
+      # Enable/disable `context.Background()` detections.
+      # Disabled if Go < 1.24.
+      # Default: false
+      #
+      # Начиная с версии go 1.24 у нас появилась возможность использовать t.Context()
+      #
+      # Следовательно все места использования context.Background() должны быть заменены на t.Context()
+      #
+      #
+      # t.Context() возвращает контекст которые будет отменён по окончанию теста
+      #
+      # До
+      # _ = context.Background()
+      #
+      # После
+      # _ = t.Context()
+      #
+      context-background: true
+
+      # Enable/disable `context.TODO()` detections.
+      # Disabled if Go < 1.24.
+      # Default: false
+      #
+      #
+      # Начиная с версии go 1.24 у нас появилась возможность использовать t.Context()
+      #
+      # Следовательно все места использования context.Background() должны быть заменены на t.Context()
+      #
+      # t.Context() возвращает контекст которые будет отменён по окончанию теста
+      #
+      # До
+      # _ = context.TODO()
+      #
+      # После
+      # _ = t.Context()
+      #
+      context-todo: true
 
     varnamelen:
       # Описывает названия переменных с их типами которые мы предпочли бы игнорировать
