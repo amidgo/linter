@@ -218,9 +218,17 @@ linters:
 
     # https://golangci-lint.run/docs/linters/configuration/#gochecknoglobals
     # https://github.com/leighmcculloch/gochecknoglobals
+    #
     # Запрещает объявлять глобальные переменные
     # Имеет ряд исключений которые описаны в репозитории
-    - gochecknoglobals
+    #
+    # Запрещает любые глобальные переменные независимо от их употребления
+    # Является черезчур жестким правилом, приводит к false-positive
+    #
+    # Глобальные переменные остаются на совести разработчиков
+    #
+    # Выключаем
+    # - gochecknoglobals
 
     # https://golangci-lint.run/docs/linters/configuration/#gochecknoinits
     # https://github.com/leighmcculloch/gochecknoinits
@@ -1034,21 +1042,47 @@ linters:
     #
     - usetesting
 
+    # https://golangci-lint.run/docs/linters/configuration/#varnamelen
+    # https://github.com/blizzy78/varnamelen
+    #
+    # Сообщает о коротких названиях переменных
+    #
+    # Настраивается
     - varnamelen
 
     # https://golangci-lint.run/docs/linters/configuration/#wastedassign
     # https://github.com/sanposhiho/wastedassign
+    #
     # ineffassign выполняет ту же самую функцию
+    #
     # Выключаем
     # ineffassign появился раньше в списке линтеров
-    # в golangci-lint с 1.0.0
+    # ineffassign в golangci-lint начиная с версии 1.0.0
+    #
     # - wastedassign
 
-    - whitespace
+    # https://golangci-lint.run/docs/linters/configuration/#whitespace
+    # https://github.com/ultraware/whitespace
+    #
+    # Сообщает о нежелательных пустых строках
+    #
+    # gofumpt убирает лишние линии
+    # wsl_v5 так же предотвращает пустые линии
+    #
+    # TODO
+    # Выключаем до выяснения обстоятельств
+    #
+    # - whitespace
 
+    # https://golangci-lint.run/docs/linters/configuration/#wrapcheck
+    # https://github.com/tomarrell/wrapcheck
+    #
+    # Сообщает об ошибках из внешних источников которые не были обернуты
+    #
+    # Настраивается
     - wrapcheck
 
-    # - wsl_v5
+    - wsl_v5
 
   settings:
     cyclop:
@@ -3842,8 +3876,7 @@ linters:
               allow-ints: "0,1"
               allow-floats: "0.0,1.0"
               # список функций разделенных запятой, для которых следует игнорировать правила линтера
-              ignore-funcs:
-                WriteHeader,
+              ignore-funcs: WriteHeader,
                 http.NewRequest,
                 http.NewRequestWithContext,
                 http.Error,
@@ -3854,9 +3887,10 @@ linters:
                 syslog.New,
                 syslog.Dial,
                 syslog.NewLogger,
-                time.Date
-
-                # Игнорируем для избежания дублей с usestdlibvars
+                time.Date,
+                slog.*,
+                log.*,
+                logger.*
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#argument-limit
         # Устанавливает максимально допустимое количество аргументов в функции
@@ -10216,8 +10250,130 @@ linters:
       context-todo: true
 
     varnamelen:
+      # Если переменная нигде не применяется проверки не происходит
+      # Далее следует условие что если если расстояние в строках
+      # от места объявления до места использования меньше или равно max-distance
+      # линтер так же не сообщит о коротком названии переменной
+      #
+      # Ставим минимально возможное значение в единицу
+      #
+      # package main
+      #
+      # import "log"
+      #
+      # func main() {
+      # 	const x = 0    // объявление константы, 6 строка
+      # 	log.Println(x) // первое использование, 7 строка
+      # }
+      #
+      # 7 - 6 = 1
+      # max-distance = 1
+      #
+      # 1 == 1
+      #
+      # Следовательно предупреждения не возникнет
+      #
+      # package main
+      #
+      # import "log"
+      #
+      # func main() {
+      # 	const x = 0    // объявление константы, 6 строка
+      #
+      # 	log.Println(x) // первое использование, 8 строка
+      # }
+      #
+      # 8 - 6 = 2
+      # max-distance = 1
+      # 2 > 1
+      #
+      # Следовательно линтер сообщит о нарушении
+      #
+      max-distance: 1
+
+      # минимально допустимая длина переменной
+      #
+      # package main
+      #
+      # import "log"
+      #
+      # func main() {
+      # 	const x = 0       // 1 символ в названии, плохо
+      #   const xxx = 101   // 3 символа в названии, хорошо
+      #
+      # 	log.Println(x, xxx)
+      # }
+      min-name-length: 3
+
+      # Применяет правила длины переменных в фукнциях расширениях
+      #
+      # type Service struct{}
+      #
+      # func (s Service) foo() { // s слишком короткое название переменной
+      # 	// отступ для работы правила max-distance
+      # 	log.Printf("Hello: %+v\n", s)
+      # }
+      #
+      # Выключаем
+      check-receiver: true
+
+      # Проверка именованых return значений
+      #
+      # func foo() (s string) { // s слишком короткое название
+      # 	// Отступ необходимый для работы правила max-distance
+      # 	return s
+      # }
+      #
+      check-return: true
+
+      # Проверяет generic параметры типов
+      #
+      # func TypeFor[T any]() {
+      # 	// Отступ необходимый для работы правила max-distance
+      # 	var _ T
+      # }
+      #
+      # Идиоматично писать их сокращённо
+      # Выключаем
+      check-type-param: false
+
+      # Убирает название переменной ok из проверки в случае type assertion
+      #
+      # var in any
+      #
+      # _, ok := in.(int)
+      # // Отступ необходимый для работы правила m
+      # _ = ok
+      #
+      ignore-type-assert-ok: true
+
+      # Убирает название переменной ok из проверки в случае получения значений из map
+      #
+      # var in map[int]int
+      #
+      # _, ok := in[0]
+      # // Отступ необходимый для работы правила m
+      # _ = ok
+      #
+      ignore-map-index-ok: true
+
+      # Убирает название переменной ok из проверки в случае получения значений из chan
+      #
+      # in := make(chan int)
+      #
+      # _, ok := <-in
+      # // Отступ необходимый для работы правила m
+      # _ = ok
+      ignore-chan-recv-ok: true
+
+      # Описывает названия которые будут игнорированы независимо от их типа
+      ignore-names:
+        - err
+        - in
+
       # Описывает названия переменных с их типами которые мы предпочли бы игнорировать
       ignore-decls:
+        - ok bool
         - wg sync.WaitGroup
         - wg *sync.WaitGroup
         - r *http.Request
@@ -10225,18 +10381,155 @@ linters:
         - w io.Writer
         - r io.Reader
 
-      # Описывает названия которые будут игнорированы независимо от их типа
-      ignore-names: []
+    whitespace:
+      # Enforces newlines (or comments) after every multi-line if statement.
+      # Default: false
+      multi-if: true
+      # Enforces newlines (or comments) after every multi-line function signature.
+      # Default: false
+      multi-func: true
 
-      # Проверять ли поля структур
-      check-type-param: true
+    # Линтер работает по следующему принципу
+    #
+    # Если есть функция которая в наборе возвращаемых аргументов имеет тип error, то
+    # такую ошибку нельзя возвращать, есть набор функций который возвращает ошибку, при этом
+    # конкретно на эти функции линтер не реагирует потому что они есть в списке
+    # именно этот список нам и позволяется составить с помощью параметров конфигурации
+    #
+    # fmt.Errorf возвращает ошибку однако тот факт что по умолчанию она есть в списке ignore-signs
+    # позволяет нам оборачивать ошибку в эту функцию не получив при этом предупреждение от линтера
+    #
+    wrapcheck:
+      # An array of strings specifying additional substrings of signatures to ignore.
+      # Unlike 'ignore-sigs', this option extends the default set (or the set specified in 'ignore-sigs') without replacing it entirely.
+      # This allows you to add specific signatures to the ignore list
+      # while retaining the defaults or any items in 'ignore-sigs'.
+      # Default: []
+      #
+      # Позволяет настроить список функций ошибку которых позволительно не оборачивать
+      #
+      # func readConfigFile() error {
+      # 	_, err := os.OpenRoot(".")
+      # 	if err != nil {
+      # 		return err // ошибка не обернута, однако issue будет проигнорирован если мы добавим OpenRoot в список
+      # 	}
+      #
+      # 	return nil
+      # }
+      #
+      extra-ignore-sigs: []
 
-      # func (s Service) foo() // s слишком короткое название
+      # An array of strings that specify substrings of signatures to ignore.
+      # If this set, it will override the default set of ignored signatures.
+      # See https://github.com/tomarrell/wrapcheck#configuration for more information.
+      # Default: [".Errorf(", "errors.New(", "errors.Unwrap(", "errors.Join(", ".Wrap(", ".Wrapf(", ".WithMessage(", ".WithMessagef(", ".WithStack("]
+      #
+      # Набор сигнатур функций результат которых следует игнорировать при проверке
+      #
+      # func readConfigFile() error {
+      # 	_, err := os.Open(".") // нет в списках, возвращать ошибку нельзя
+      # 	if err != nil {
+      # 		return fmt.Errorf("os.Open: %w", err) // fmt.Errorf есть в списке, её результат error можно возвращать
+      # 	}
+      #
+      # 	return nil
+      # }
+      #
+      ignore-sigs:
+        [
+          ".Errorf(",
+          "errors.New(",
+          "errors.Unwrap(",
+          "errors.Join(",
+          ".Wrap(",
+          ".Wrapf(",
+          ".WithMessage(",
+          ".WithMessagef(",
+          ".WithStack(",
+        ]
+
+      # An array of strings that specify regular expressions of signatures to ignore.
+      # Default: []
+      #
+      # Позволяет задать список регулярных выражений для поиска функций ошибку которых можно вернуть
+      #
+      # func readConfigFile() error {
+      # 	_, err := os.Open(".") // если в списках есть регулярное выражение "O*" все функции которые начинаются на O будут проигнорированы
+      # 	if err != nil {
+      # 		return err // не вызовет предупреждения со стороны линтера
+      # 	}
+      #
+      # 	return nil
+      # }
+      #
+      ignore-sig-regexps: []
+
+      # An array of strings that specify globs of packages to ignore.
+      # Default: []
+      #
+      # Возволяет ввести регулярные выражения исключения сразу всех функций пакетов
+      #
+      #
+      # func readConfigFile() error {
+      # 	_, err := http.NewRequestWithContext(
+      # 		context.Background(),
+      # 		http.MethodGet,
+      # 		"/any/target",
+      # 		http.NoBody,
+      # 	)
+      # 	if err != nil {
+      # 		return err // предупреждения не будет если в данном списке есть регулярное выражение под которое подпадает "net/http" например "net/*"
+      # 	}
+      #
+      # 	return nil
+      # }
+      #
+      ignore-package-globs: []
+
+      # An array of strings that specify regular expressions of interfaces to ignore.
+      # Default: []
+      #
+      # Набор интерфейсов из текущего пакета, ошибки из которых можно не оборачивать
+      #
+      # type Reader interface{ Read(buf []byte) (int, error) }
+      #
+      # func readConfigFile(r Reader) error {
+      # 	_, err := r.Read([]byte{0})
+      # 	if err != nil {
+      # 		return err // если указать Reader в списке линтер не будет указывать на возврат данной ошибки без оборачивания
+      # 	}
+      #
+      # 	return nil
+      # }
+      #
+      ignore-interface-regexps: []
+
+      # Determines whether wrapcheck should report errors returned from inside the package.
+      # Default: false
+      #
+      # Следует ли оборачивать фукнции текущего пакета
+      #
+      # По умолчанию не стоит, так как это внутренний источник
+      #
+      #
+      # type Reader interface{ Read(buf []byte) (int, error) }
+      #
+      # func readConfigFile(r Reader) error {
+      # 	err := read(r)
+      # 	if err != nil {
+      # 		return err // по умолчанию линтер не будет сообщать о необернутых ошибках из функций текущего пакета
+      # 	}
+      #
+      # 	return nil
+      # }
+      #
+      # func read(Reader) error {
+      # 	return nil
+      # }
+      #
+      #
       # Выключаем
-      check-receiver: false
-
-      # Проверка именованых return значений
-      check-return: true
+      report-internal-errors: false
 
   exclusions:
     # Сообщает что исключение не используется
