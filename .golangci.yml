@@ -576,7 +576,11 @@ linters:
     # 	return nil, nil, io.ErrUnexpectedEOF
     # }
     # return make(chan int), nil, io.ErrUnexpectedEOF
-    - nlreturn
+    #
+    # wsl_v5.return выполняет ту же самую функцию
+    #
+    # Выключаем
+    # - nlreturn
 
     # https://golangci-lint.run/docs/linters/configuration/#noctx
     # https://github.com/sonatard/noctx
@@ -10539,85 +10543,460 @@ linters:
       report-internal-errors: false
 
     wsl_v5:
-      # Allow cuddling a variable if it's used first in the immediate following block,
-      # even if the statement with the block doesn't use the variable.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: true
+      # Разрешает "объятие" переменной, если она используется первой в следующем блоке,
+      # даже если оператор с блоком не использует эту переменную.
+      #
+      # Пример:
+      # До (при allow-first-in-block: true - разрешено):
+      # x := 1
+      # for {
+      #     x++  // x используется первым в блоке
+      #     break
+      # }
+      #
+      # После (при allow-first-in-block: false - требуется пустая строка):
+      # x := 1
+      #
+      # for {
+      #     x++
+      #     break
+      # }
       allow-first-in-block: false
-      # Same as above,
-      # but allows cuddling if the variable is used anywhere in the following (or nested) block.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: false
+
+      # То же самое, что и выше,
+      # но разрешает "объятие", если переменная используется в любом месте следующего (или вложенного) блока.
+      #
+      # Пример:
+      # До (при allow-whole-block: true - разрешено):
+      # x := 1
+      # if condition {
+      #     fmt.Println("start")
+      #     if nested {
+      #         x = 2  // x используется во вложенном блоке
+      #     }
+      # }
+      #
+      # После (при allow-whole-block: false - требуется пустая строка):
+      # x := 1
+      #
+      # if condition {
+      #     fmt.Println("start")
+      #     if nested {
+      #         x = 2
+      #     }
+      # }
       allow-whole-block: true
-      # If a block contains more than this number of lines,
-      # the branch statement needs to be separated by whitespace.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: 2
+
+      # Если блок содержит больше этого количества строк,
+      # оператор ветвления должен быть разделен пустой строкой.
+      #
+      # Пример:
+      # До (блок из 5 строк > branch-max-lines: 4 - требуется пустая строка):
+      # for {
+      #     a, err := SomeFn()
+      #     if err != nil {
+      #         return err
+      #     }
+      #     fmt.Println(a)
+      #     break  // блок больше 4 строк - нужна пустая строка
+      # }
+      #
+      # После:
+      # for {
+      #     a, err := SomeFn()
+      #     if err != nil {
+      #         return err
+      #     }
+      #     fmt.Println(a)
+      #
+      #     break
+      # }
       branch-max-lines: 4
-      # If set to a non-negative number,
-      # case blocks need to end with whitespace if exceeding this number
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#configuration
-      # Default: 0
+
+      # Если установлено в неотрицательное число,
+      # блоки case должны заканчиваться пустой строкой, если превышают это число
+      #
+      # Пример:
+      # До (case из 3 строк > case-max-lines: 2 - требуется пустая строка):
+      # switch value {
+      # case 1:
+      #     fmt.Println("line 1")
+      #     fmt.Println("line 2")
+      #     fmt.Println("line 3")  // 3 строки > 2 - нужна пустая строка
+      # case 2:
+      #     return true
+      # }
+      #
+      # После:
+      # switch value {
+      # case 1:
+      #     fmt.Println("line 1")
+      #     fmt.Println("line 2")
+      #     fmt.Println("line 3")
+      #
+      # case 2:
+      #     return true
+      # }
       case-max-lines: 2
-      # Default checks to use.
-      # Can be `all`, `none`, `default` or empty.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#checks-and-configuration
-      # Default: ""
-      default: all
-      # Enabled checks.
-      # Will be additive to any presets.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#checks-and-configuration
-      # Default: []
+
+      # Проверки по умолчанию для использования.
+      # Может быть `all`, `none`, `default` или пустым.
+      default: none
+
+      # Включенные проверки.
+      # Будут добавлены к любым предустановкам.
       enable:
+        # Присвоения должны быть разделены пустой линией с другими типами statements
+        #
+        # До
+        # if true {
+        #     fmt.Println("hello")
+        # }
+        # a := 1  // не присвоение выше
+        #
+        # После
+        # if true {
+        #     fmt.Println("hello")
+        # }
+        #
+        # a := 1
+        #
+        # a := 1
+        # b := 2  // разрешено - оба присвоения
         - assign
+
+        # Операторы перехода должны иметь пустую строку если блок больше n строк
+        #
+        # До
+        # for {
+        #     a, err := SomeFn()
+        #     if err != nil {
+        #         return err
+        #     }
+        #     fmt.Println(a)
+        #     break  // блок больше 4 строк - нужна пустая строка
+        # }
+        #
+        # После
+        # for {
+        #     a, err := SomeFn()
+        #     if err != nil {
+        #         return err
+        #     }
+        #     fmt.Println(a)
+        #
+        #     break
+        # }
         - branch
+
+        # Объявления должны быть сгруппированы
+        #
+        # До
+        # var a string
+        # var b int  // множественные объявления должны быть сгруппированы
+        #
+        # После
+        # var (
+        #     a string
+        #     b int
+        # )
         - decl
+
+        # Defer должен использоваться непосредственно в контексте откладываемой операции
+        #
+        # До
+        # val, closeFn := SomeFn()
+        # val2 := fmt.Sprintf("v-%s", val)
+        # fmt.Println(val)
+        # defer closeFn()  // слишком много операций между созданием и defer
+        #
+        # После
+        # val, closeFn := SomeFn()
+        # defer closeFn()
         - defer
+
+        # Выражения не должны быть "обняты" с присвоениями если переменные не используются
+        #
+        # До
+        # a := 1
+        # b := 2
+        # fmt.Println("not b")  // b не используется в выражении
+        #
+        # После
+        # a := 1
+        # b := 2
+        #
+        # fmt.Println("not b")
         - expr
+
+        # For должен использовать переменные из предыдущей строки в условии
+        #
+        # До
+        # i := 0
+        # for j := 0; j < 3; j++ {  // i не используется в выражении
+        #     fmt.Println(j)
+        # }
+        #
+        # После
+        # i := 0
+        # for j := 0; j < i; j++ {  // i используется в выражении
+        #     fmt.Println(j)
+        # }
         - for
+
+        # Go должен использовать переменные из предыдущей строки
+        #
+        # До
+        # someFunc := func() {}
+        # go anotherFunc()  // someFunc не используется
+        #
+        # После
+        # someFunc := func() {}
+        # go someFunc()  // someFunc используется
         - go
+
+        # If должен использовать переменные из предыдущей строки в условии
+        #
+        # До
+        # x := 1
+        # if y > 1 {  // x не используется в условии
+        #     fmt.Println("y > 1")
+        # }
+        #
+        # После
+        # x := 1
+        # if x > 1 {  // x используется в условии
+        #     fmt.Println("x > 1")
+        # }
         - if
+
+        # Инкремент/декремент должны быть разделены пустой строкой с другими типами statements
+        #
+        # До
+        # i := 1
+        # if true {
+        #     fmt.Println("hello")
+        # }
+        # i++  // не inc-dec/assign выше
+        #
+        # После
+        # i := 1
+        # i++  // разрешено - оба inc-dec/assign
         - inc-dec
+
+        # Метки всегда должны иметь пустую строку сверху
+        #
+        # До
+        # L1:
+        #     if true {
+        #         _ = 1
+        #     }
+        # L2:  // метка без пустой строки сверху
+        #     if true {
+        #         _ = 1
+        #     }
+        #
+        # После
+        # L1:
+        #     if true {
+        #         _ = 1
+        #     }
+        #
+        # L2:  // метка с пустой строкой сверху
+        #     if true {
+        #         _ = 1
+        #     }
         - label
+
+        # Range должен использовать переменные из предыдущей строки
+        #
+        # До
+        # someRange := []int{1, 2, 3}
+        # for _, i := range thisIsNotSomeRange {  // someRange не используется
+        #     fmt.Println(i)
+        # }
+        #
+        # После
+        # someRange := []int{1, 2, 3}
+        # for _, i := range someRange {  // someRange используется
+        #     fmt.Println(i)
+        # }
         - range
+
+        # Return должен иметь пустую строку если блок больше n строк
+        #
+        # До
+        # func Fn() int {
+        #     x, err := someFn()
+        #     if err != nil {
+        #         panic(err)
+        #     }
+        #     fmt.Println(x)
+        #     return  // блок больше 4 строк - нужна пустая строка
+        # }
+        #
+        # После
+        # func Fn() int {
+        #     x, err := someFn()
+        #     if err != nil {
+        #         panic(err)
+        #     }
+        #     fmt.Println(x)
+        #
+        #     return
+        # }
         - return
+
+        # Select должен использовать переменные из предыдущей строки
+        #
+        # До
+        # x := 0
+        # select {  // x не используется
+        # case <-time.After(time.Second):
+        #     // ...
+        # }
+        #
+        # После
+        # stop := make(chan struct{})
+        # select {
+        # case <-time.After(time.Second):
+        #     // ...
+        # case <-stop:  // stop используется
+        #     // ...
+        # }
         - select
+
+        # Send должен использовать переменные из предыдущей строки
+        #
+        # До
+        # a := 1
+        # ch <- 1  // a не используется
+        #
+        # После
+        # a := 1
+        # ch <- a  // a используется
         - send
+
+        # Switch должен использовать переменные из предыдущей строки
+        #
+        # До
+        # x := 0
+        # switch y {  // x не используется
+        # case 1:
+        #     // ...
+        # }
+        #
+        # После
+        # n := 1
+        # switch n {  // n используется
+        # case 1:
+        #     // ...
+        # }
         - switch
+
+        # Type-switch должен использовать переменные из предыдущей строки
+        #
+        # До
+        # x := someType()
+        # switch y.(type) {  // x не используется
+        # case int32:
+        #     // ...
+        # }
+        #
+        # После
+        # x := someType()
+        # switch x.(type) {  // x используется
+        # case int32:
+        #     // ...
+        # }
         - type-switch
+
+        # Append должен использовать переменные из предыдущей строки
+        #
+        # До
+        # s := []string{}
+        # a := 1
+        # s = append(s, 2)  // a не используется в append
+        #
+        # После
+        # s := []string{}
+        # a := 1
+        # s = append(s, a)  // a используется в append
         - append
+
+        # Запрещает смешивать новые присвоения (:=) и переприсвоения (=)
+        #
+        # До
+        # a := 1
+        # b = 2   // смешаны := и =
+        # c := 3
+        #
+        # После
+        # a := 1
+        # c := 3
+        #
+        # b = 2
         - assign-exclusive
+
+        # Запрещает "объятие" присвоений с выражениями
+        #
+        # До
+        # t1.Fn1()
+        # x := t1.Fn2()  // выше не присвоение
+        #
+        # После
+        # t1.Fn1()
+        #
+        # x := t1.Fn2()
         - assign-expr
+
+        # Запрещает пустую строку между присвоением ошибки и ее проверкой
+        #
+        # До
+        # _, err := SomeFn()
+        #
+        # if err != nil {  // пустая строка между err и проверкой
+        #     return err
+        # }
+        #
+        # После
+        # _, err := SomeFn()
+        # if err != nil {  // нет пустой строки
+        #     return err
+        # }
         - err
+
+        # Запрещает ведущие пробелы в начале блока
+        #
+        # До
+        # if true {
+        #
+        #     fmt.Println("hello")  # есть пустая строка в начале блока
+        # }
+        #
+        # После
+        # if true {
+        #     fmt.Println("hello")  # нет пустой строки в начале блока
+        # }
         - leading-whitespace
+
+        # Запрещает trailing пробелы в конце блока
+        #
+        # До
+        # if true {
+        #     fmt.Println("hello")
+        #
+        # }  # есть пустая строка в конце блока
+        #
+        # После
+        # if true {
+        #     fmt.Println("hello")
+        # }  # нет пустой строки в конце блока
         - trailing-whitespace
-      # Disable checks.
-      # Will be subtractive to any preset.
-      # https://github.com/bombsimon/wsl/tree/main?tab=readme-ov-file#checks-and-configuration
-      # Default: []
-      disable:
-        - assign
-        - branch
-        - decl
-        - defer
-        - expr
-        - for
-        - go
-        - if
-        - inc-dec
-        - label
-        - range
-        - return
-        - select
-        - send
-        - switch
-        - type-switch
-        - append
-        - assign-exclusive
-        - assign-expr
-        - err
-        - leading-whitespace
-        - trailing-whitespace
+
+      # Отключить проверки.
+      # Будет вычитаться из любой предустановки.
+      disable: []
 
   exclusions:
     # Сообщает что исключение не используется
