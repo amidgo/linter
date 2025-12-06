@@ -1076,7 +1076,7 @@ linters:
     # TODO
     # Выключаем до выяснения обстоятельств
     #
-    # - whitespace
+    - whitespace
 
     # https://golangci-lint.run/docs/linters/configuration/#wrapcheck
     # https://github.com/tomarrell/wrapcheck
@@ -10543,8 +10543,11 @@ linters:
       report-internal-errors: false
 
     wsl_v5:
-      # Разрешает "объятие" переменной, если она используется первой в следующем блоке,
+      # Разрешает захват переменной если она используется первой в следующем блоке,
       # даже если оператор с блоком не использует эту переменную.
+      #
+      # Является настройкой для линтеров следующих правилу
+      # "Никаких переменных которые не используются в выражении"
       #
       # Пример:
       # До (при allow-first-in-block: true - разрешено):
@@ -10561,10 +10564,16 @@ linters:
       #     x++
       #     break
       # }
+      #
       allow-first-in-block: false
 
       # То же самое, что и выше,
-      # но разрешает "объятие", если переменная используется в любом месте следующего (или вложенного) блока.
+      # но разрешает захват если переменная используется в любом месте следующего (или вложенного) блока.
+      #
+      # Расширяет правило allow-first-in-block
+      #
+      # Является настройкой для линтеров следующих правилу
+      # "Никаких переменных которые не используются в выражении"
       #
       # Пример:
       # До (при allow-whole-block: true - разрешено):
@@ -10585,7 +10594,9 @@ linters:
       #         x = 2
       #     }
       # }
-      allow-whole-block: true
+      #
+      # Вредит общей читаемости кода, выключаем
+      allow-whole-block: false
 
       # Если блок содержит больше этого количества строк,
       # оператор ветвления должен быть разделен пустой строкой.
@@ -10598,7 +10609,9 @@ linters:
       #         return err
       #     }
       #     fmt.Println(a)
-      #     break  // блок больше 4 строк - нужна пустая строка
+      #     fmt.Println(a) // блок больше 4 строк - нужна пустая строка
+      #
+      #     break
       # }
       #
       # После:
@@ -10613,8 +10626,9 @@ linters:
       # }
       branch-max-lines: 4
 
-      # Если установлено в неотрицательное число,
-      # блоки case должны заканчиваться пустой строкой, если превышают это число
+      # Если количество строк в блоке case превышает указанное количество строк (или указано отрицательное значение)
+      # То такой case блок должен заканчиваться пустой строкой (кроме последнего блока)
+      #
       #
       # Пример:
       # До (case из 3 строк > case-max-lines: 2 - требуется пустая строка):
@@ -10637,7 +10651,7 @@ linters:
       # case 2:
       #     return true
       # }
-      case-max-lines: 2
+      case-max-lines: -1
 
       # Проверки по умолчанию для использования.
       # Может быть `all`, `none`, `default` или пустым.
@@ -10666,6 +10680,8 @@ linters:
         - assign
 
         # Операторы перехода должны иметь пустую строку если блок больше n строк
+        #
+        # Количество линий регулируется через настройку branch-max-lines
         #
         # До
         # for {
@@ -10703,19 +10719,22 @@ linters:
         - decl
 
         # Defer должен использоваться непосредственно в контексте откладываемой операции
+        # Если операция не используется в defer линтер не будет жаловаться
         #
         # До
-        # val, closeFn := SomeFn()
-        # val2 := fmt.Sprintf("v-%s", val)
-        # fmt.Println(val)
-        # defer closeFn()  // слишком много операций между созданием и defer
+        # ctx, cancel := context.WithCancel(ctx)
+        # fmt.Println("Hello World!")
+        # defer cancel() // должен идти непосредственно после context.WithCancel
         #
         # После
-        # val, closeFn := SomeFn()
-        # defer closeFn()
+        # ctx, cancel := context.WithCancel(ctx)
+        # defer cancel()
+        # fmt.Println("Hello World!")
+        #
         - defer
 
-        # Выражения не должны быть "обняты" с присвоениями если переменные не используются
+        # Блоки инициализации переменных должны быть разделены с вызовами функция|методов если они не используются непосредственно
+        # в данном вызову фукнции|метода
         #
         # До
         # a := 1
@@ -10731,57 +10750,101 @@ linters:
 
         # For должен использовать переменные из предыдущей строки в условии
         #
+        # allow-first-in-block и allow-whole-block влиют на поведение линтера
+        #
         # До
-        # i := 0
-        # for j := 0; j < 3; j++ {  // i не используется в выражении
-        #     fmt.Println(j)
+        # condition := true
+        # for false {
+        # 	fmt.Println("false")
         # }
         #
         # После
-        # i := 0
-        # for j := 0; j < i; j++ {  // i используется в выражении
-        #     fmt.Println(j)
+        #
+        # condition := true
+        # for condition {
+        # 	fmt.Println("false")
         # }
+        #
+        # Или
+        #
+        # condition := true
+        # for false {
+        # 	fmt.Println("false")
+        # }
+        #
         - for
 
         # Go должен использовать переменные из предыдущей строки
         #
+        # allow-first-in-block и allow-whole-block влиют на поведение линтера
+        #
         # До
-        # someFunc := func() {}
-        # go anotherFunc()  // someFunc не используется
+        # path := "Hello World!" // по скольку path не используется в функции вызванной в новой горутине необходим отступ
+        # go fmt.Println("Hello")
         #
         # После
-        # someFunc := func() {}
-        # go someFunc()  // someFunc используется
+        #
+        # path := "Hello World!"
+        # go fmt.Println(path)
+        #
+        # Или
+        #
+        # path := "Hello World!"
+        #
+        # go fmt.Println("Hello")
+        #
         - go
 
         # If должен использовать переменные из предыдущей строки в условии
         #
+        # allow-first-in-block и allow-whole-block влиют на поведение линтера
+        #
         # До
+        # y := 0
+        #
         # x := 1
         # if y > 1 {  // x не используется в условии
         #     fmt.Println("y > 1")
         # }
         #
         # После
+        # y := 0
+        #
         # x := 1
         # if x > 1 {  // x используется в условии
         #     fmt.Println("x > 1")
         # }
+        #
+        # Или
+        #
+        # y := 0
+        #
+        # x := 1
+        #
+        # if y > 1 {  // x не используется в условии
+        #     fmt.Println("y > 1")
+        # }
+        #
         - if
 
         # Инкремент/декремент должны быть разделены пустой строкой с другими типами statements
         #
         # До
+        #
         # i := 1
+        #
         # if true {
-        #     fmt.Println("hello")
         # }
-        # i++  // не inc-dec/assign выше
+        # i++
         #
         # После
+        #
         # i := 1
-        # i++  // разрешено - оба inc-dec/assign
+        #
+        # if true {
+        # }
+        #
+        # i++
         - inc-dec
 
         # Метки всегда должны иметь пустую строку сверху
@@ -10810,88 +10873,148 @@ linters:
 
         # Range должен использовать переменные из предыдущей строки
         #
+        # allow-first-in-block и allow-whole-block влиют на поведение линтера
+        #
         # До
-        # someRange := []int{1, 2, 3}
-        # for _, i := range thisIsNotSomeRange {  // someRange не используется
-        #     fmt.Println(i)
+        # nums := []int{1, 2, 3}
+        # for range 1 {
+        # 	_ = nums
         # }
         #
         # После
-        # someRange := []int{1, 2, 3}
-        # for _, i := range someRange {  // someRange используется
-        #     fmt.Println(i)
+        # nums := []int{1, 2, 3}
+        # for range nums {
+        # 	_ = nums
         # }
+        #
+        # Или
+        #
+        # nums := []int{1, 2, 3}
+        #
+        # for range 1 {
+        # 	_ = nums
+        # }
+        #
         - range
 
         # Return должен иметь пустую строку если блок больше n строк
         #
+        # Количество линий регулируется через настройку branch-max-lines
+        #
         # До
-        # func Fn() int {
-        #     x, err := someFn()
-        #     if err != nil {
-        #         panic(err)
-        #     }
-        #     fmt.Println(x)
-        #     return  // блок больше 4 строк - нужна пустая строка
+        #
+        # func do() error {
+        # 	_, err := strconv.Atoi("1")
+        # 	if err != nil {
+        # 		return err
+        # 	}
+        # 	return nil // блок больше 4 строк - нужна пустая строка
         # }
         #
         # После
-        # func Fn() int {
-        #     x, err := someFn()
-        #     if err != nil {
-        #         panic(err)
-        #     }
-        #     fmt.Println(x)
         #
-        #     return
+        # func do() error {
+        # 	_, err := strconv.Atoi("1")
+        # 	if err != nil {
+        # 		return err
+        # 	}
+        #
+        # 	return nil // блок больше 4 строк - нужна пустая строка
         # }
+        #
         - return
 
         # Select должен использовать переменные из предыдущей строки
         #
         # До
-        # x := 0
-        # select {  // x не используется
+        #
+        # allow-first-in-block не сработает, однако allow-whole-block предотвращает случаи когда переменная используется в тебе блока
+        #
+        # numCh := make(chan int) // не используется в case нижнем блоках, должен быть отступ
+        # select {
         # case <-time.After(time.Second):
-        #     // ...
+        # 	<-numCh
         # }
         #
         # После
-        # stop := make(chan struct{})
+        #
+        # numCh := make(chan int) // используется в одной из ветвей, всё хорошо
         # select {
         # case <-time.After(time.Second):
-        #     // ...
-        # case <-stop:  // stop используется
-        #     // ...
+        # 	<-numCh
+        #
+        # case <-numCh:
         # }
+        #
+        # Или
+        #
+        # numCh := make(chan int) // не используется в case нижнем блоках, должен быть отступ
+        # // отступ
+        # select {
+        # case <-time.After(time.Second):
+        # 	<-numCh
+        # }
+        #
         - select
 
         # Send должен использовать переменные из предыдущей строки
         #
         # До
-        # a := 1
-        # ch <- 1  // a не используется
+        #
+        # ch := make(chan int)
+        #
+        # a := 1 // ниже необходим отступ
+        # ch <- 1
         #
         # После
+        #
+        # ch := make(chan int)
+        #
         # a := 1
-        # ch <- a  // a используется
+        # ch <- a
+        #
+        # Или
+        #
+        # ch := make(chan int)
+        #
+        # a := 1
+        #
+        # ch <- 1
+        #
         - send
 
         # Switch должен использовать переменные из предыдущей строки
         #
         # До
-        # x := 0
-        # switch y {  // x не используется
+        # a := 0 // переменная не используется, ниже должен быть отступ
+        # switch 0 {
         # case 1:
-        #     // ...
         # }
         #
         # После
-        # n := 1
-        # switch n {  // n используется
+        # a := 0 // переменная используется в одной из веток case
+        # switch 0 {
         # case 1:
-        #     // ...
+        # case a:
         # }
+        #
+        # Или
+        #
+        # a := 0 // переменная используется в самом switch
+        # switch a {
+        # case 1:
+        # case 0:
+        # }
+        #
+        # Или (если включено allow-whole-block)
+        # a := 0
+        # switch 2 {
+        # case 1:
+        # 	_ = a
+        #
+        # case 0:
+        # }
+        #
         - switch
 
         # Type-switch должен использовать переменные из предыдущей строки
