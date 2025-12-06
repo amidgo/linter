@@ -11020,31 +11020,60 @@ linters:
         # Type-switch должен использовать переменные из предыдущей строки
         #
         # До
-        # x := someType()
-        # switch y.(type) {  // x не используется
+        # anyWord := any("Hello World!")
+        #
+        # anyDigit := any(1) // ниже должен быть отступ
+        # switch anyWord.(type) {
         # case int32:
-        #     // ...
         # }
         #
         # После
-        # x := someType()
-        # switch x.(type) {  // x используется
+        # anyWord := any("Hello World!")
+        # anyDigit := any(1)
+        #
+        # switch anyWord.(type) {
         # case int32:
-        #     // ...
+        # 	_ = anyDigit
         # }
+        #
+        # Или с включенной опцией allow-whole-block
+        #
+        # anyWord := any("Hello World!")
+        #
+        # anyDigit := any(1)
+        # switch anyWord.(type) {
+        # case int32:
+        # 	_ = anyDigit // any digit используется в блоке, поэтому с данной опцией линтер не ругается
+        # }
+        #
         - type-switch
 
         # Append должен использовать переменные из предыдущей строки
         #
         # До
-        # s := []string{}
+        # digits := make([]int, 0)
         # a := 1
-        # s = append(s, 2)  // a не используется в append
+        #
+        # b := 1
+        # digits = append(digits, a)
         #
         # После
-        # s := []string{}
+        # digits := make([]int, 0)
         # a := 1
-        # s = append(s, a)  // a используется в append
+        #
+        # b := 1
+        #
+        # digits = append(digits, a)
+        #
+        # Или
+        #
+        # digits := make([]int, 0)
+        # b := 1
+        #
+        # a := 1
+        # digits = append(digits, a) // assign-exclusive всё ещё будет жаловаться на данную строку
+        #
+        # По скольку append это всегда присвоение, конфликтует с линтером assign-exclusive в некоторых случаях
         - append
 
         # Запрещает смешивать новые присвоения (:=) и переприсвоения (=)
