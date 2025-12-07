@@ -1070,11 +1070,19 @@ linters:
     #
     # Сообщает о нежелательных пустых строках
     #
-    # gofumpt убирает лишние линии
-    # wsl_v5 так же предотвращает пустые линии
+    # До
+    # func main() { // Нежелательная пустая строка ниже
     #
-    # TODO
-    # Выключаем до выяснения обстоятельств
+    # 	os.Exit(0)
+    #
+    # } // Нежелательная пустая строка выше
+    #
+    # После
+    # func main() {
+    # 	os.Exit(0)
+    # }
+    #
+    # gofumpt formatter убирает лишние линии
     #
     - whitespace
 
@@ -1089,10 +1097,38 @@ linters:
     # https://golangci-lint.run/docs/linters/configuration/#wsl_v5
     # https://github.com/bombsimon/wsl
     #
+    # Набор правил для отступов
     - wsl_v5
 
     # https://golangci-lint.run/docs/linters/configuration/#zerologlint
     # https://github.com/ykadowak/zerologlint
+    #
+    #
+    # Сообщает о забытых *zerolog.Event.Send или *zerolog.Event.Msg методах
+    # без которых сообщение будет записано
+    #
+    # Все прочие методы, это лишь часть builder pattern
+    #
+    # До
+    # log.Info().Str("key", "value") // Не имеет никакого эффекта
+    #
+    # После
+    #	log.Info().Str("key", "value").Msg("entered") // Выведет сообщение в out
+    #
+    # {"level":"info","key":"value","time":"2025-12-07T21:24:58+04:00","message":"entered"}
+    #
+    # False Positive
+    #
+    # Если мы возвращаем *zerolog.Event из функции линтер так же сообщит о проблеме
+    #
+    # func main() {
+    # 	makeEvent().Send()
+    # }
+    #
+    # func makeEvent() *zerolog.Event {
+    # 	return log.Info().Str("key", "value") // линтер сообщит о пропущенных Send или Msg методах
+    # }
+    #
     - zerologlint
 
   settings:
@@ -1175,11 +1211,13 @@ linters:
         - '.+/http\.Client$'
         # не реагируем на http.Transport
         - '.+/http\.Transport$'
-        # не реагируем на tls.Config
-        - '.+/tls\.Config$'
 
-        # не трогаем prometheus для валидации его полей есть отдельный линтер promlinter
-        - '.+/prometheus\..*Opts$'
+        # Структуры которые обозначают опции и конфигурации зачастую
+        # имеют множество опциональных полей, не обязательных к присвоению
+        # данные регулярные выражения позволяют избежать проверки этих структур
+        - ".*Opts$"
+        - ".*Options$"
+        - ".*Config$"
 
     forbidigo:
       forbid:
@@ -2526,9 +2564,13 @@ linters:
 
         # Check for useless assignments.
         # Проверяет результаты переменных которые присваиваются сами себе
+        #
         # a := 1
         # a = a // поругается на такое
-        # Существует несколько подлинтеров и линтеров которые валидируют такое поведение и даже больше
+        #
+        # ineffassign выполняет ту же самую функцию
+        #
+        # Выключаем
         # - assign
 
         # Check for common mistakes using the sync/atomic package.
@@ -2630,7 +2672,42 @@ linters:
         # 	b  bool
         # 	b1 bool
         # } размер равен 16, выравнено по 8 байт но теперь j, b и b1 вместе взятые занимают 8 байт + i которая всё ещё занимает 8 байт
-        - fieldalignment
+        #
+        #
+        # Есть следующая структура
+        # type User struct {
+        # 	Name    string
+        # 	Surname *string
+        # }
+        #
+        # fieldalignment сообщит следующее
+        # fieldalignment: struct with 24 pointer bytes could be 16
+        #
+        # Хотя при этом размер структуры невозможно сократить перестановкой параметров Name и Surname
+        #
+        # https://github.com/golang/go/issues/44877#issuecomment-794565908 - тут разбирался подобный случай
+        #
+        # fieldalignment делает две проверки
+        #
+        # 1. Оптимизирует размер структур
+        # 2. Анализирует количество байт, которое сборщику мусора необходимо пройти для того чтобы добраться до указателя
+        #
+        # В нашем случае fieldalignment желает видеть следующую структуру
+        #
+        # type User struct {
+        # 	Surname *string
+        # 	Name    string
+        # }
+        #
+        # Последнее может генерировать кучу false positive
+        #
+        # От линтера больше вреда чем пользы
+        #
+        # Если вашему проекту необходимы микрооптимизации в виде выравнивания структур
+        # то вам следует включить его
+        #
+        # Выключаем
+        # - fieldalignment
 
         # Find calls to a particular function.
         # Всё что он делает это находит вызовы отдельных функций
@@ -10395,10 +10472,63 @@ linters:
     whitespace:
       # Enforces newlines (or comments) after every multi-line if statement.
       # Default: false
+      #
+      # Обязывает применять пропуск строки (или комментарий) после многострочного if
+      #
+      # До
+      # if 10%2 == 0 &&
+      # 	15%2 == 1 { // ниже должен быть отступ или комментарий
+      # 	log.Println("Hello World!")
+      # }
+      #
+      # После
+      # if 10%2 == 0 &&
+      # 	15%2 == 1 {
+      #
+      # 	log.Println("Hello World!")
+      # }
+      #
       multi-if: true
+
       # Enforces newlines (or comments) after every multi-line function signature.
       # Default: false
-      multi-func: true
+      #
+      #
+      #
+      # type User struct {
+      # 	age  int
+      # 	name string
+      # }
+      #
+      #
+      # До
+      # func newUser(
+      # 	age int,
+      # 	name string,
+      # ) User { // ниже должен быть отступ или комментарий
+      # 	return User{
+      # 		age:  age,
+      # 		name: name,
+      # 	}
+      # }
+      #
+      # После
+      # func newUser(
+      # 	age int,
+      # 	name string,
+      # ) User {
+      #
+      # 	return User{
+      # 		age:  age,
+      # 		name: name,
+      # 	}
+      # }
+      #
+      #
+      # Конфликтует с форматированием gofumpt (gofumpt автоматически убирает пропуск линии)
+      #
+      # Выключаем
+      multi-func: false
 
     # Линтер работает по следующему принципу
     #
@@ -11073,49 +11203,57 @@ linters:
         # a := 1
         # digits = append(digits, a) // assign-exclusive всё ещё будет жаловаться на данную строку
         #
-        # По скольку append это всегда присвоение, конфликтует с линтером assign-exclusive в некоторых случаях
+        # По скольку append это всегда присвоение, конфликтует с линтером assign в некоторых случаях
         - append
 
-        # Запрещает смешивать новые присвоения (:=) и переприсвоения (=)
+        # Запрещает смешивать декларацию переменных (:=) и присвоения (=)
         #
         # До
-        # a := 1
-        # b = 2   // смешаны := и =
-        # c := 3
+        # a := 0
+        #
+        # b := 1 // ниже должен быть отступ
+        # a = 2
         #
         # После
-        # a := 1
-        # c := 3
+        # a := 0
         #
-        # b = 2
+        # b := 1
+        #
+        # a = 2
+        #
+        #
+        # Является поднастройкой assign, если assign выключена assign-exclusive не имеет эффекта
         - assign-exclusive
 
-        # Запрещает "объятие" присвоений с выражениями
+        # Запрещает смешивать декларацию переменных полученных в результате функций с другими выражениями
         #
         # До
-        # t1.Fn1()
-        # x := t1.Fn2()  // выше не присвоение
+        # srv.Hello() // ниже необходим отступ
+        # code, ok := srv.Bye()
         #
         # После
-        # t1.Fn1()
+        # srv.Hello()
         #
-        # x := t1.Fn2()
+        # code, ok := srv.Bye()
+        #
+        # Является поднастройкой assign, если assign выключена assign-expr не имеет эффекта
         - assign-expr
 
         # Запрещает пустую строку между присвоением ошибки и ее проверкой
         #
         # До
-        # _, err := SomeFn()
+        # file, err := os.Open("README.md")
         #
-        # if err != nil {  // пустая строка между err и проверкой
-        #     return err
+        # if err != nil { // пустая строка между присвоением ошибки и её проверкой
+        # 	panic(err)
         # }
         #
         # После
-        # _, err := SomeFn()
-        # if err != nil {  // нет пустой строки
-        #     return err
+        # file, err := os.Open("README.md")
+        # if err != nil {
+        # 	panic(err)
         # }
+        #
         - err
 
         # Запрещает ведущие пробелы в начале блока
@@ -11123,28 +11261,58 @@ linters:
         # До
         # if true {
         #
-        #     fmt.Println("hello")  # есть пустая строка в начале блока
+        #     fmt.Println("hello")  // есть пустая строка в начале блока
+        # }
+        #
+        # func hello() int {
+        #
+        # 	return 0 // есть пустая строка в начале блока
         # }
         #
         # После
         # if true {
-        #     fmt.Println("hello")  # нет пустой строки в начале блока
+        #     fmt.Println("hello")  // нет пустой строки в начале блока
         # }
-        - leading-whitespace
+        #
+        # func hello() int {
+        # 	return 0 // нет пустой строки в начале блока
+        # }
+        #
+        # whitespace выполняет ту же самую функцию
+        # Однако позволяет настроить правило в случае многострочных if и деклараций функции
+        # Выключаем
+        # - leading-whitespace
 
         # Запрещает trailing пробелы в конце блока
+        #
+        # Распространяется и на другие конструкции
         #
         # До
         # if true {
         #     fmt.Println("hello")
         #
-        # }  # есть пустая строка в конце блока
+        # } // есть пустая строка в конце блока
+        #
+        #
+        # func hello() int {
+        # 	return 0
+        #
+        # } // есть пустая строка в конце блока
         #
         # После
         # if true {
         #     fmt.Println("hello")
-        # }  # нет пустой строки в конце блока
-        - trailing-whitespace
+        # } // нет пустой строки в конце блока
+        #
+        # func hello() int {
+        # 	return 0
+        # } // нет пустой строки в конце блока
+        #
+        #
+        # whitespace выполняет ту же самую функцию
+        # Однако позволяет настроить правило в случае многострочных if и деклараций функции
+        # Выключаем
+        # - trailing-whitespace
 
       # Отключить проверки.
       # Будет вычитаться из любой предустановки.
@@ -11198,7 +11366,6 @@ run:
   timeout: "1m"
   issues-exit-code: 1
   tests: true
-  build-tags: []
 
 issues:
   # Не ограничивает линтеры в количестве сообщений
