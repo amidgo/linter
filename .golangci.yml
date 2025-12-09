@@ -11358,10 +11358,383 @@ linters:
 
 formatters:
   enable:
-    - gci
+    # https://golangci-lint.run/docs/formatters/configuration/#gci
+    # https://github.com/daixiang0/gci
+    #
+    # Определеяет порядок следования импортов в import ( "fmt" )
+    #
+    # Имеет гибкую настройку
+    #
+    # Будет полезен если вам необходимо сортировать импорты
+    #
+    # Выключаем
+    # - gci
+
+    # https://golangci-lint.run/docs/formatters/configuration/#gofmt
+    # https://pkg.go.dev/cmd/gofmt
+    #
+    # Форматтер в gopls по умолчанию
+    #
+    # в golangci-lint позволяет настроить список замен
+    #
     - gofmt
+
+    # https://golangci-lint.run/docs/formatters/configuration/#gofumpt
+    # https://github.com/mvdan/gofumpt
+    #
+    # Расширяет функциональность gofmt
+    #
+    # В gopls может быть включен с помощью опции gofumpt - true
+    # Является форком gofmt
+    #
+    # Добавочные правила относительно gofmt
+    #
+    #
+    # После оператора присвоения не должно быть пустых линий
+    #
+    # До
+    # func foo() {
+    #     foo :=
+    #         "bar"
+    # }
+    #
+    # После
+    # func foo() {
+    # 	foo := "bar"
+    # }
+    #
+    #
+    # В начале и конце функции не должно быть пустых линий
+    #
+    # До
+    # func foo() {
+    #
+    # 	println("bar")
+    #
+    # }
+    #
+    # После
+    # func foo() {
+    # 	println("bar")
+    # }
+    #
+    #
+    # Функции должны отделять объявление параметров функции от ) {
+    # Это помогает улучшить читаемость кода
+    #
+    # До
+    # func foo(s string,
+    # 	i int) {
+    # 	println("bar")
+    # }
+    #
+    # // With an empty line it's slightly better, but still not great.
+    # func bar(s string,
+    # 	i int) {
+    #
+    # 	println("bar")
+    # }
+    #
+    # После
+    # func foo(s string,
+    # 	i int) {
+    # 	println("bar")
+    # }
+    #
+    # // With an empty line it's slightly better, but still not great.
+    # func bar(s string,
+    # 	i int) {
+    #
+    # 	println("bar")
+    # }
+    #
+    #
+    # В случае если в блоке содержится одно выражение (или комментарий) вокруг него не должно быть пустых строк
+    #
+    # До
+    # if err != nil {
+    #
+    # 	return err
+    # }
+    #
+    # if err != nil {
+    #
+    # 	// comment
+    # 	return err
+    # }
+    #
+    #
+    # После
+    # if err != nil {
+    # 	return err
+    # }
+    #
+    # if err != nil {
+    # 	// comment
+    # 	return err
+    # }
+    #
+    #
+    # Между получением ошибки и её проверкой не должно быть пустых линий
+    #
+    # До
+    # foo, err := processFoo()
+    #
+    # if err != nil {
+    # 	return err
+    # }
+    #
+    # После
+    # foo, err := processFoo()
+    # if err != nil {
+    # 	return err
+    # }
+    #
+    #
+    # Элементы слайсов должны использовать новые строки согласовано
+    #
+    # До
+    # // A newline before or after an element requires newlines for the opening and
+    # // closing braces.
+    #
+    # // Если после элемента есть отсуп в виде пропуска строки то начало и конец массива должны быть отделены пропусками строк
+    # // включая тот что был сделан пользователем
+    # var ints = []int{1, 2,
+    # 	3, 4}
+    #
+    # // A newline between consecutive elements requires a newline between all
+    # // elements.
+    # // Если между несколькими элементами массива есть отступ то каждый
+    # // элемент массива должен быть отеделен отступом
+    # var matrix = [][]int{
+    # 	{1},
+    # 	{2}, {
+    # 		3,
+    # 	},
+    # }
+    #
+    # После
+    # var ints = []int{
+    # 	1, 2,
+    # 	3, 4,
+    # }
+    #
+    # var matrix = [][]int{
+    # 	{1},
+    # 	{2},
+    # 	{
+    # 		3,
+    # 	},
+    # }
+    #
+    #
+    # Пустой набор полей, методов, параметров должен использовать одну строку
+    #
+    # До
+    # var V interface {
+    # } = 3
+    #
+    # type T struct {
+    # }
+    #
+    # func F(
+    # ) {
+    #
+    # }
+    #
+    # После
+    # var V interface{} = 3
+    #
+    # type T struct{}
+    #
+    # func F() {
+    # }
+    #
+    #
+    #
     - gofumpt
-    - golines
+
+    # - golines
+
+  settings:
+    gci:
+      # Section configuration to compare against.
+      # Section names are case-insensitive and may contain parameters in ().
+      # The default order of sections is `standard > default > custom > blank > dot > alias > localmodule`.
+      # If `custom-order` is `true`, it follows the order of `sections` option.
+      # Default: ["standard", "default"]
+      sections:
+        # Standard section: captures all standard packages
+        # Все импорты из стандартной библиотеки
+        #
+        - standard
+
+        # Default section: contains all imports that could not be matched to another section type.
+        # Все импорты которые не вошли ни в одну другую группу
+        #
+        # Зачастую здесь будут ваши внешние зависимости
+        #
+        - default
+
+        # Custom section: groups all imports with the specified Prefix.
+        # Все импорты которые начинаются с указанного префикса
+        #
+        - prefix(github.com)
+        - prefix(golang.org)
+
+        # Blank section: contains all blank imports. This section is not present unless explicitly enabled.
+        # Импорты с alias _
+        #
+        # import _ "crypto/sha256"
+        #
+        - blank
+
+        # Dot section: contains all dot imports. This section is not present unless explicitly enabled.
+        #
+        # Импорты с alias .
+        #
+        # import . "fmt"
+        #
+        - dot
+
+        # Alias section: contains all alias imports. This section is not present unless explicitly enabled.
+        #
+        # import c "context"
+        #
+        # Если импорт имеет alias но при этом так же относится к категории localmodule
+        # то такой импорт будет помещён в секцию localmodule
+        #
+        - alias
+
+        # Local module section: contains all local packages. This section is not present unless explicitly enabled.
+        #
+        # Зависимости из пакетов самого модуля
+        #
+        # Структура вашего проекта github.com/bob/service
+        #
+        # internal
+        #   app
+        #     app.go
+        #   client
+        #     client.go
+        #
+        # Импорт github.com/bob/service/client будет помещён в эту секцию
+        #
+        - localmodule
+
+      # Checks that no inline comments are present.
+      # Default: false
+      #
+      # В настоящее время golangci-lint v2.7.1 не имеет силы (поле в конфиге нигде не используется)
+      no-inline-comments: true
+
+      # Checks that no prefix comments (comment lines above an import) are present.
+      # Default: false
+      #
+      # В настоящее время golangci-lint v2.7.1 не имеет силы (поле в конфиге нигде не используется)
+      no-prefix-comments: true
+
+      # Enable custom order of sections.
+      # If `true`, make the section order the same as the order of `sections`.
+      # Default: false
+      #
+      # По умолчанию порядок секций таков
+      # standard > default > custom > blank > dot > alias > localmodule
+      #
+      # При включении данной опции порядок будет определен порядком указания в sections
+      custom-order: true
+
+      # Drops lexical ordering for custom sections.
+      # Default: false
+      #
+      # Размещает custom опции в порядке указанным в sections
+      #
+      # Если опция custom-order включена no-lex-order не используется
+      #
+      no-lex-order: false
+
+    gofmt:
+      # Simplify code: gofmt with `-s` option.
+      # Default: true
+      #
+      # Если включено вводит дополнительные правила по упрощению кода
+      #
+      # Примеры взяты из официальной документации
+      #
+      # https://pkg.go.dev/cmd/gofmt#hdr-The_simplify_command
+      #
+      # An array, slice, or map composite literal of the form:
+      # 	[]T{T{}, T{}}
+      # will be simplified to:
+      # 	[]T{{}, {}}
+      #
+      # A slice expression of the form:
+      # 	s[a:len(s)]
+      # will be simplified to:
+      # 	s[a:]
+      #
+      # A range of the form:
+      # 	for x, _ = range v {...}
+      # will be simplified to:
+      # 	for x = range v {...}
+      #
+      # A range of the form:
+      # 	for _ = range v {...}
+      # will be simplified to:
+      # 	for range v {...}
+      #
+      simplify: true
+
+      # Apply the rewrite rules to the source before reformatting.
+      # https://pkg.go.dev/cmd/gofmt
+      # Default: []
+      #
+      # Позволяет настроить автоматические замены
+      #
+      # interface{} будет автоматически заменен на any после форматирования
+      rewrite-rules:
+        - pattern: "interface{}"
+          replacement: "any"
+
+    gofumpt:
+      # Module path which contains the source code being formatted.
+      # Default: ""
+      #
+      # Необходим для того чтобы импорты локальных пакетов не попали в секцию std
+      #
+      # Например наш модуль называется foo/bar
+      # Это позволит форматтеру отделить зависимости стандартной библиотеки от foo/bar
+      #
+      module-path: ""
+
+      # Choose whether to use the extra rules.
+      # Default: false
+      #
+      # Включает дополнительные правила
+      #
+      #
+      # Соседствующие параметры одного типа должны быть сгруппированы вместе
+      #
+      # До
+      # func Foo(bar string, baz string) {}
+      #
+      # После
+      # func Foo(bar, baz string) {}
+      #
+      #
+      # Необходимо избегать пустых return
+      #
+      # До
+      # func Foo() (err error) {
+      #   return
+      # }
+      #
+      # После
+      # func Foo() (err error) {
+      # 	return err
+      # }
+      #
+      extra-rules: true
 
 run:
   timeout: "1m"
