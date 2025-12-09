@@ -1,4 +1,4 @@
-module github.com/amidgo/linter
+module amidgo/linter
 
 go 1.25
 

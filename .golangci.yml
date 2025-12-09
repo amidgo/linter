@@ -11551,10 +11551,202 @@ formatters:
     # }
     #
     #
+    # Стандартные импорты должны быть сгруппированы в один блок и быть наверху блока import
+    #
+    # В случае если название вашего модуля не содержит '.' в своем имени
+    # необходимо указать параметр module-path в настройках линтера
+    # для избежания распознования локальных пакетов модуля как зависимостей стандартной библиотеки
+    #
+    # До
+    # import (
+    # 	"foo.com/bar"
+    #
+    # 	"io"
+    #
+    # 	"io/ioutil"
+    # )
+    #
+    # После
+    # import (
+    # 	"io"
+    # 	"io/ioutil"
+    #
+    # 	"foo.com/bar"
+    # )
+    #
+    #
+    # Если case выражение можно уместить в 60 символов то такое выжение должно быть записано в одну строчку
+    # важно учитывать при настройке лимита в lll
+    #
+    # До
+    # switch c {
+    # case 'a', 'b',
+    # 	'c', 'd':
+    # }
+    #
+    # После
+    # switch c {
+    # case 'a', 'b', 'c', 'd':
+    # }
+    #
+    #
+    # Верхнеуровневые декларации должны быть разделены пустой строкой
+    #
+    # До
+    # func foo() {
+    # 	println("multiline foo")
+    # }
+    # func bar() {
+    # 	println("multiline bar")
+    # }
+    #
+    # После
+    # func foo() {
+    # 	println("multiline foo")
+    # }
+    #
+    # func bar() {
+    # 	println("multiline bar")
+    # }
+    #
+    #
+    # Блоки var состоящие из одной переменной должны быть записаны в одну строку
+    #
+    # До
+    # var (
+    # 	foo = "bar"
+    # )
+    #
+    # После
+    # var foo = "bar"
+    #
+    #
+    # Идущие последовательно одиночные объявления var должны быть объединены в один блок var
+    #
+    # До
+    # var nicer = "x"
+    # var with = "y"
+    # var alignment = "z"
+    #
+    # После
+    # var (
+    # 	nicer     = "x"
+    # 	with      = "y"
+    # 	alignment = "z"
+    # )
+    #
+    #
+    # Одиночное объявление var должно быть заменено на короткий вариант ':='
+    #
+    # До
+    # var s = "somestring"
+    #
+    # После
+    # s := "somestring"
+    #
+    #
+    # Флаг -s в gofmt
+    #
+    # До
+    # var _ = [][]int{[]int{1}}
+    #
+    # После
+    # var _ = [][]int{{1}}
+    #
+    #
+    # Числа в восьмеричной системе счисления должны начинаться с '0o'
+    #
+    # До
+    # const perm = 0755
+    #
+    # После
+    # const perm = 0o755
+    #
+    #
+    # Комментарии не относящиеся к //go:directive должны начинаться с пробела
+    # gofmt так же исправляет подобные issue
+    #
+    # До
+    # //go:noinline
+    #
+    # //Foo is awesome.
+    # func Foo() {}
+    #
+    # После
+    # //go:noinline
+    #
+    # // Foo is awesome.
+    # func Foo() {}
+    #
+    #
+    # В slice и map не должно быть отступов строки в начале и в конце
+    #
+    # До
+    # var _ = []string{
+    #
+    # 	"foo",
+    #
+    # }
+    #
+    # var _ = map[string]string{
+    #
+    # 	"foo": "bar",
+    #
+    # }
+    #
+    # После
+    # var _ = []string{
+    # 	"foo",
+    # }
+    #
+    # var _ = map[string]string{
+    # 	"foo": "bar",
+    # }
+    #
+    #
+    # В объявлениях методов интерфейса и полей структур не должно быть лишних пробелов в начале и конце
+    #
+    # До
+    # type Person interface {
+    #
+    # 	Name() string
+    #
+    # 	Age() int
+    #
+    # }
+    #
+    # type ZeroFields struct {
+    #
+    # 	// No fields are needed here.
+    #
+    # }
+    #
+    # После
+    # type Person interface {
+    # 	Name() string
+    #
+    # 	Age() int
+    # }
+    #
+    # type ZeroFields struct {
+    # 	// No fields are needed here.
+    # }
+    #
+    # Пример с интерфейсом работает и в gofmt
     #
     - gofumpt
 
+    # https://golangci-lint.run/docs/formatters/configuration/#goimports
+    # https://pkg.go.dev/golang.org/x/tools/cmd/goimports
+    # - goimports
+
+    # https://golangci-lint.run/docs/formatters/configuration/#golines
+    # https://github.com/segmentio/golines
     # - golines
+
+    # https://golangci-lint.run/docs/formatters/configuration/#swaggo
+    # https://github.com/swaggo/swaggo
+    # - swaggo
 
   settings:
     gci:
@@ -11683,6 +11875,7 @@ formatters:
       # will be simplified to:
       # 	for range v {...}
       #
+      # в gofumpt включено по умолчанию
       simplify: true
 
       # Apply the rewrite rules to the source before reformatting.
