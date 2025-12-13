@@ -5001,7 +5001,7 @@ linters:
         #
         # Выключаем
         - name: max-public-structs
-          disabled: false
+          disabled: true
           exclude: [""]
           arguments: [3]
 
