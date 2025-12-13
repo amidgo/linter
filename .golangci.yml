@@ -3951,7 +3951,7 @@ linters:
         # Проверяет "магические" значения строк и чисел которые необходимо заменить на константы
         - name: add-constant
           disabled: false
-          exclude: [""]
+          exclude: ["TEST"]
           arguments:
             # max-lit-count - максимальное количество раз которое строка может встречаться в коде,
             # после превышения которого линтер сообщит и необходимости создания константы под эту строку
@@ -3979,7 +3979,8 @@ linters:
                 time.Date,
                 slog.*,
                 log.*,
-                logger.*
+                logger.*,
+                fmt\.(?:Printf|Sprintf|Fprintf|Scanf|Fscanf|Sscanf)$
 
         # https://github.com/mgechev/revive/blob/HEAD/RULES_DESCRIPTIONS.md#argument-limit
         # Устанавливает максимально допустимое количество аргументов в функции
@@ -4630,7 +4631,7 @@ linters:
         # Устанавливает максимально допустимую длину файла
         - name: file-length-limit
           disabled: false
-          exclude: [""]
+          exclude: ["TEST"]
           arguments:
             - max: 500
               skip-comments: true
@@ -10469,6 +10470,7 @@ linters:
         - w http.ResponseWriter
         - w io.Writer
         - r io.Reader
+        - i int
 
     whitespace:
       # Enforces newlines (or comments) after every multi-line if statement.
@@ -11339,13 +11341,6 @@ linters:
           # По скольку зачастую в тестах если тип не тот мы спаникуем
           # Затратив при этом лишние строчки на проверку if !ok и сам вызов паники или t.Fatal
           - forcetypeassert
-
-      - path: _test\.go
-        linters:
-          - revive
-
-        # аналогично с исключением gocognit при проверке тестовых функций мы исключаем проверку длины в тестах
-        text: file-length-limit
 
       - source: "^func Test"
         linters:
