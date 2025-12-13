@@ -1911,7 +1911,7 @@ linters:
         # Очень мощный инструмент для проверок
         # Позволяет писать собственные линтеры в файлах go
         # Настраиваемый
-        - ruleguard
+        # - ruleguard
 
         # https://go-critic.com/overview.html#singlecaseswitch
         # Если наш switch case состоит из одного case предлагает заменить его на if
