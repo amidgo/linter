@@ -2274,9 +2274,6 @@ linters:
           # Папка с файлами содержащими правила
           rules: rules/*.go
 
-        # tooManyResultsChecker:
-        #   maxResults: 2
-
     gosec:
       config:
         # важно включать разрешение в кавычки, иначе разрешение не переопределяется
