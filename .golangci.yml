@@ -11738,7 +11738,13 @@ formatters:
 
     # https://golangci-lint.run/docs/formatters/configuration/#goimports
     # https://pkg.go.dev/golang.org/x/tools/cmd/goimports
-    # - goimports
+    #
+    # Убирает неиспользуемые импорты
+    # Ищет вызовы функций из пакетов, которые не импортированы
+    # Проверяет порядок импортов
+    #
+    # Имеет настройку для отдельной группировки пакетов
+    - goimports
 
     # https://golangci-lint.run/docs/formatters/configuration/#golines
     # https://github.com/segmentio/golines
@@ -11889,6 +11895,10 @@ formatters:
         - pattern: "interface{}"
           replacement: "any"
 
+        - pattern: "uuid.Nil"
+          # Скобки нужны для условий if, где в случае замены без скобок появится синтаксическая ошибка
+          replacement: "(uuid.UUID{})"
+
     gofumpt:
       # Module path which contains the source code being formatted.
       # Default: ""
@@ -11928,6 +11938,44 @@ formatters:
       # }
       #
       extra-rules: true
+
+    goimports:
+      # A list of prefixes, which, if set, checks import paths
+      # with the given prefixes are grouped after 3rd-party packages.
+      # Default: []
+      #
+      # Набор префиксов по которым goimports отделит эти зависимости от общей массы импортов
+      #
+      # В документации gci (более мощный форматтер от сообщества позволяющий сортировать импорты)
+      #
+      # Указано на необходимость убедится что goimports запускается до gci
+      # Иначе могут возникнуть конфликты
+      #
+      #
+      # import (
+      #   "os"
+      #
+      #   "github.com/amidgo/dependency"
+      #   "you.com/local/prefix/dependency"
+      #
+      #   "you.com/local/prefix/dependency/v1"
+      # )
+      #
+      # В случае если you.com указано в префиксе то после запуска мы увидим
+      #
+      # import (
+      #   "os"
+      #
+      #   "github.com/amidgo/dependency"
+      #
+      #   "you.com/local/prefix/dependency"
+      #
+      #   "you.com/local/prefix/dependency/v1"
+      # )
+      #
+      # Все зависимости с префиксом you.com отделены от остальной массы
+      # НО не сгруппированы вместе
+      local-prefixes: []
 
 run:
   timeout: "1m"
