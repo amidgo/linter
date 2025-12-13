@@ -867,7 +867,7 @@ linters:
     # Однако проверяет правила публичных полей
     # есть опции для сортировки тегов
     #
-    # golines выполняет ту же самую фукнцию форматирования тегов
+    # golines.reformat-tags выполняет ту же самую фукнцию форматирования тегов
     #
     # Выключаем
     # - tagalign
@@ -3100,7 +3100,7 @@ linters:
       # Max line length, lines longer will be reported.
       # '\t' is counted as 1 character by default, and can be changed with the tab-width option.
       # Default: 120.
-      line-length: 120
+      line-length: 100
       # Tab width in spaces.
       # Default: 1
       # Табы считаются от начала строки включительно
@@ -3144,10 +3144,12 @@ linters:
       # Setting locale to US will correct the British spelling of 'colour' to 'color'.
       # Default is to use a neutral variety of English.
       locale: US
+
       # Typos to ignore.
       # Should be in lower case.
       # Default: []
       ignore-rules: []
+
       # Extra word corrections.
       # `typo` and `correction` should only contain letters.
       # The words are case-insensitive.
@@ -3157,11 +3159,12 @@ linters:
           correction: "if"
         - typo: "cancelation"
           correction: "cancellation"
+
       # Mode of the analysis:
       # - default: checks all the file content.
       # - restricted: checks only comments.
       # Default: ""
-      mode: restricted
+      mode: default
 
     mnd:
       # List of enabled checks, see https://github.com/tommy-muehle/go-mnd/#checks for description.
@@ -11748,7 +11751,23 @@ formatters:
 
     # https://golangci-lint.run/docs/formatters/configuration/#golines
     # https://github.com/segmentio/golines
-    # - golines
+    #
+    # Сокращает линии
+    #
+    # До
+    # myMap := map[string]string{"first key": "first value", "second key": "second value", "third key": "third value", "fourth key": "fourth value", "fifth key": "fifth value"}
+    #
+    # После
+    # myMap := map[string]string{
+    # 	"first key": "first value",
+    # 	"second key": "second value",
+    # 	"third key": "third value",
+    # 	"fourth key": "fourth value",
+    # 	"fifth key": "fifth value",
+    # }
+    #
+    # Настраивается
+    - golines
 
     # https://golangci-lint.run/docs/formatters/configuration/#swaggo
     # https://github.com/swaggo/swaggo
@@ -11976,6 +11995,85 @@ formatters:
       # Все зависимости с префиксом you.com отделены от остальной массы
       # НО не сгруппированы вместе
       local-prefixes: []
+
+    golines:
+      # Target maximum line length.
+      # Default: 100
+      #
+      # Максимально допустимая длина строки
+      # Желательно чтобы совпадало с настройкой lll.line-length
+      max-len: 100
+
+      # Length of a tabulation.
+      # Default: 4
+      #
+      # Стоимость символа табуляции '\t' при расчете длины строки
+      # Желательно чтобы совпадало с настройкой lll.tab-width
+      tab-len: 4
+
+      # Shorten single-line comments.
+      # Default: false
+      #
+      # Данная опция позволяет разбивать длинные комментарии
+      #
+      # До
+      # // Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin id odio non neque tempus elementum eget vel ipsum. Duis imperdiet id enim at eleifend. Pellentesque vitae lacinia nulla, ac pretium eros.
+      #
+      # После
+      # // Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin id odio non neque tempus
+      # // elementum eget vel ipsum. Duis imperdiet id enim at eleifend. Pellentesque vitae lacinia
+      # // nulla, ac pretium eros.
+      #
+      shorten-comments: true
+
+      # Default: true
+      #
+      # Форматирует теги полей структуры
+      #
+      # До
+      # type Tagged struct {
+      # 	Name    string `json:"name" yaml:"name"`
+      # 	Surname string `yaml:"surname" json:"surname"`
+      # }
+      #
+      # После
+      # type Tagged struct {
+      # 	Name    string `json:"name"    yaml:"name"`
+      # 	Surname string `json:"surname" yaml:"surname"`
+      # }
+      #
+      reformat-tags: true
+
+      # Split chained methods on the dots as opposed to the arguments.
+      # Default: true
+      #
+      # В случае если длина линии превышает максимально допустимое число символов
+      # и состоит из .Chain().Chain
+      # golines разобьёт строку на несколько
+      #
+      # До
+      # srv.EXPECT().SayHello("Dima").Return("Hello Dima!").Times(1).Return("Hello Dima!").Times(1).Return("Hello Dima!").Times(1).Return("Hello Dima!").Times(1).Return("Hello Dima!").Times(1).Return("Hello Dima!").Times(1).Return("Hello Dima!").Times(1).Return("Hello Dima!").Times(1)
+      #
+      # После
+      # srv.EXPECT().
+      # 	SayHello("Dima").
+      # 	Return("Hello Dima!").
+      # 	Times(1).
+      # 	Return("Hello Dima!").
+      # 	Times(1).
+      # 	Return("Hello Dima!").
+      # 	Times(1).
+      # 	Return("Hello Dima!").
+      # 	Times(1).
+      # 	Return("Hello Dima!").
+      # 	Times(1).
+      # 	Return("Hello Dima!").
+      # 	Times(1).
+      # 	Return("Hello Dima!").
+      # 	Times(1).
+      # 	Return("Hello Dima!").
+      # 	Times(1) // Каждый .Method() начинается с новой строки
+      chain-split-dots: true
 
 run:
   timeout: "1m"
