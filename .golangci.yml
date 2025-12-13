@@ -2270,9 +2270,10 @@ linters:
           # Пропускаем тестовы функции
           skipTestFuncs: true
 
-        ruleguard:
-          # Папка с файлами содержащими правила
-          rules: rules/*.go
+        # Закоменчено из-за того что gocritic пишет warning если для выключенного линтера не указаны настройки
+        # ruleguard:
+        #   # Папка с файлами содержащими правила
+        #   rules: rules/*.go
 
     gosec:
       config:
