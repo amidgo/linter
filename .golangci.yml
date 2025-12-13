@@ -11770,8 +11770,37 @@ formatters:
     - golines
 
     # https://golangci-lint.run/docs/formatters/configuration/#swaggo
-    # https://github.com/swaggo/swaggo
-    # - swaggo
+    # https://github.com/golangci/swaggoswag
+    #
+    # Выравнивает комментарии https://github.com/swaggo/swag которые предназначены для генерации openapi спецификации
+    #
+    # До
+    # // GetUser handles getting user
+    # // @Summary Get user
+    # // @Description Get user by ID
+    # // @Tags users
+    # // @Accept json
+    # // @Produce json
+    # // @Param id path int true "User ID"
+    # // @Success 200 {object} User "OK"
+    # // @Failure 400 {object} Error "Bad Request"
+    # // @Router /users/{id} [get]
+    # func GetUser() {}
+    #
+    # После
+    # // GetUser handles getting user
+    # // @Summary      Get user
+    # // @Description  Get user by ID
+    # // @Tags         users
+    # // @Accept       json
+    # // @Produce      json
+    # // @Param        id  path  int  true  "User ID"
+    # // @Success      200  {object}  User  "OK"
+    # // @Failure      400  {object}  Error  "Bad Request"
+    # // @Router       /users/{id} [get]
+    # func GetUser() {}
+    #
+    - swaggo
 
   settings:
     gci:
