@@ -5433,7 +5433,7 @@ linters:
         # i, _ = any(nil).(int) // НЕВЕРНО ok (bool) значение опущено
         - name: unchecked-type-assertion
           disabled: false
-          exclude: [""]
+          exclude: ["TEST"]
           arguments:
             - accept-ignored-assertion-result: false
 
@@ -10888,7 +10888,7 @@ linters:
         # b := 2
         #
         # fmt.Println("not b")
-        - expr
+        # - expr
 
         # For должен использовать переменные из предыдущей строки в условии
         #
@@ -10987,7 +10987,7 @@ linters:
         # }
         #
         # i++
-        - inc-dec
+        # - inc-dec
 
         # Метки всегда должны иметь пустую строку сверху
         #
@@ -12128,10 +12128,6 @@ issues:
   # Позволяет нескольким линтерам жаловаться на одну и ту же строчку
   # Позволяет видеть все возможные issue сразу а не постепенно
   uniq-by-line: false
-#
-#
-#
-#
 #
 #
 #
