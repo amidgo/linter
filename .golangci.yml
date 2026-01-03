@@ -5044,8 +5044,19 @@ linters:
         # 	}
         # }
         #
+        #
+        # Срабатывает на случай
+        #
+        # ctx, cancel := context.WithCancelCause(ctx)
+        # defer cancel(nil)
+        #
+        # Что несомненно является false-positive
+        #
+        #
+        # Выключаем
+        #
         - name: modifies-parameter
-          disabled: false
+          disabled: true
           exclude: [""]
           arguments: []
 
